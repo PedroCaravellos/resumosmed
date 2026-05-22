@@ -357,7 +357,7 @@ function Signup({ go, onAuth }){
           {busy ? "Criando..." : "Criar conta →"}
         </button>
         <div style={{marginTop: 14, fontSize: 11.5, color:"var(--muted)", lineHeight: 1.5}}>
-          Ao criar conta, você concorda com os <a style={{textDecoration:"underline"}}>Termos</a> e <a style={{textDecoration:"underline"}}>Política de privacidade</a>.
+          Ao criar conta, você concorda com os <a style={{textDecoration:"underline", cursor:"pointer"}} onClick={()=>go({name:"terms"})}>Termos</a> e <a style={{textDecoration:"underline", cursor:"pointer"}} onClick={()=>go({name:"privacy"})}>Política de privacidade</a>.
         </div>
       </form>
     </AuthShell>

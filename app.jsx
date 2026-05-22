@@ -158,7 +158,11 @@ function App(){
     case "library":     page = <MyLibrary go={go} currentUser={currentUser}/>; break;
     case "payment-return": page = <PaymentReturn go={go} clearCart={clearCart} refreshUser={refreshUser} currentUser={currentUser} cart={cart}/>; break;
     case "reader":      page = <PdfReader id={route.id} go={go} currentUser={currentUser}/>; break;
-    default:            page = <Landing go={go} addToCart={addToCart} heroCopy={t.hero}/>;
+    case "profile":     page = <AccountSettings go={go} currentUser={currentUser} refreshUser={refreshUser}/>; break;
+    case "terms":       page = <TermsPage go={go} anchor={route.anchor}/>; break;
+    case "privacy":     page = <PrivacyPage go={go}/>; break;
+    case "landing":     page = <Landing go={go} addToCart={addToCart} heroCopy={t.hero}/>; break;
+    default:            page = <NotFound go={go}/>;
   }
 
   return (

@@ -221,6 +221,7 @@ function Nav({ route, go, cartCount, dark, toggleDark, currentUser, onLogout }){
                   {isAdmin && <MenuItem onClick={()=>{setMenuOpen(false); go({name:"admin"});}}>Painel admin</MenuItem>}
                   {isAdmin && <MenuItem onClick={()=>{setMenuOpen(false); go({name:"library"});}}>Biblioteca de revisão</MenuItem>}
                   <MenuItem onClick={()=>{setMenuOpen(false); go({name:"catalog"});}}>Ver catálogo</MenuItem>
+                  <MenuItem onClick={()=>{setMenuOpen(false); go({name:"profile"});}}>Configurações da conta</MenuItem>
                   <div style={{borderTop:"1px solid var(--line)", margin:"4px 0"}}/>
                   <MenuItem onClick={()=>{setMenuOpen(false); onLogout();}} danger>Sair</MenuItem>
                 </div>
@@ -341,9 +342,9 @@ function Footer({ go }){
         <div>
           <div style={{fontWeight: 700, marginBottom: 12, fontSize: 13}}>Legal</div>
           <div className="col" style={{gap: 8, fontSize: 14, color:"var(--muted)"}}>
-            <a>Termos de uso</a>
-            <a>Privacidade</a>
-            <a>Reembolso</a>
+            <a style={{cursor:"pointer"}} onClick={()=>go({name:"terms"})}>Termos de uso</a>
+            <a style={{cursor:"pointer"}} onClick={()=>go({name:"privacy"})}>Privacidade</a>
+            <a style={{cursor:"pointer"}} onClick={()=>go({name:"terms", anchor:"reembolso"})}>Reembolso</a>
           </div>
         </div>
       </div>

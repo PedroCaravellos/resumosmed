@@ -1142,4 +1142,231 @@ function PaymentReturn({ go, clearCart, refreshUser, currentUser, cart }){
   );
 }
 
-Object.assign(window, { Landing, Catalog, Product, Cart, HERO_COPY, ProductPagePreview });
+// ─────────────────────────────────────────────────────────
+//  ACCOUNT SETTINGS
+// ─────────────────────────────────────────────────────────
+function AccountSettings({ go, currentUser, refreshUser }){
+  const [name, setName] = useStateP(currentUser?.name || "");
+  const [nameMsg, setNameMsg] = useStateP(null);
+  const [nameBusy, setNameBusy] = useStateP(false);
+
+  const [newPass, setNewPass] = useStateP("");
+  const [confirmPass, setConfirmPass] = useStateP("");
+  const [passMsg, setPassMsg] = useStateP(null);
+  const [passBusy, setPassBusy] = useStateP(false);
+
+  if (!currentUser) {
+    go({ name: "login" });
+    return null;
+  }
+
+  const saveName = async (e) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setNameBusy(true); setNameMsg(null);
+    try {
+      const { error: authErr } = await sb.auth.updateUser({ data: { name: trimmed } });
+      if (authErr) throw authErr;
+      const { error: dbErr } = await sb.from("profiles").update({ name: trimmed }).eq("id", currentUser.id);
+      if (dbErr) throw dbErr;
+      await refreshUser?.();
+      setNameMsg({ ok: true, text: "Nome atualizado!" });
+    } catch (err) {
+      setNameMsg({ ok: false, text: "Erro ao salvar: " + (err.message || err) });
+    } finally {
+      setNameBusy(false);
+    }
+  };
+
+  const savePassword = async (e) => {
+    e.preventDefault();
+    if (newPass.length < 8) { setPassMsg({ ok: false, text: "Mínimo 8 caracteres." }); return; }
+    if (!/\d/.test(newPass)) { setPassMsg({ ok: false, text: "Inclua ao menos um número." }); return; }
+    if (newPass !== confirmPass) { setPassMsg({ ok: false, text: "As senhas não coincidem." }); return; }
+    setPassBusy(true); setPassMsg(null);
+    try {
+      const { error } = await sb.auth.updateUser({ password: newPass });
+      if (error) throw error;
+      setPassMsg({ ok: true, text: "Senha atualizada!" });
+      setNewPass(""); setConfirmPass("");
+    } catch (err) {
+      setPassMsg({ ok: false, text: "Erro ao atualizar: " + (err.message || err) });
+    } finally {
+      setPassBusy(false);
+    }
+  };
+
+  const section = { marginBottom: 32, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)", padding: 28 };
+  const label = { fontSize: 12, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, display: "block" };
+  const msgStyle = (ok) => ({ marginTop: 10, fontSize: 13, color: ok ? "var(--acc-2)" : "var(--primary)", fontWeight: 500 });
+
+  return (
+    <div className="pagewrap page" style={{ paddingTop: 48, maxWidth: 560 }}>
+      <button className="btn ghost" onClick={() => go({ name: "library" })} style={{ marginBottom: 24, gap: 6 }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        Voltar
+      </button>
+      <div className="display" style={{ fontSize: 28, fontWeight: 700, marginBottom: 32 }}>Configurações da conta</div>
+
+      <div style={section}>
+        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>Dados pessoais</div>
+        <form onSubmit={saveName}>
+          <div style={{ marginBottom: 14 }}>
+            <label style={label}>Nome</label>
+            <input className="input" value={name} onChange={e => setName(e.target.value)} style={{ width: "100%" }} />
+          </div>
+          <div style={{ marginBottom: 4 }}>
+            <label style={label}>Email</label>
+            <input className="input" value={currentUser.email} disabled style={{ width: "100%", opacity: .6 }} />
+          </div>
+          {nameMsg && <div style={msgStyle(nameMsg.ok)}>{nameMsg.text}</div>}
+          <button className="btn primary" type="submit" disabled={nameBusy || name.trim() === currentUser.name} style={{ marginTop: 16, opacity: nameBusy ? .7 : 1 }}>
+            {nameBusy ? "Salvando…" : "Salvar nome"}
+          </button>
+        </form>
+      </div>
+
+      <div style={section}>
+        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>Trocar senha</div>
+        <form onSubmit={savePassword}>
+          <div style={{ marginBottom: 14 }}>
+            <label style={label}>Nova senha</label>
+            <input className="input" type="password" value={newPass} onChange={e => setNewPass(e.target.value)} placeholder="Mínimo 8 caracteres e 1 número" style={{ width: "100%" }} />
+          </div>
+          <div style={{ marginBottom: 4 }}>
+            <label style={label}>Confirmar senha</label>
+            <input className="input" type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} placeholder="Repita a nova senha" style={{ width: "100%" }} />
+          </div>
+          {passMsg && <div style={msgStyle(passMsg.ok)}>{passMsg.text}</div>}
+          <button className="btn primary" type="submit" disabled={passBusy || !newPass} style={{ marginTop: 16, opacity: passBusy ? .7 : 1 }}>
+            {passBusy ? "Salvando…" : "Atualizar senha"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+//  LEGAL PAGES
+// ─────────────────────────────────────────────────────────
+function LegalPage({ title, children, go }){
+  return (
+    <div className="pagewrap page" style={{ paddingTop: 48, maxWidth: 720 }}>
+      <button className="btn ghost" onClick={() => go({ name: "landing" })} style={{ marginBottom: 24, gap: 6 }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        Início
+      </button>
+      <div className="display" style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>{title}</div>
+      <div className="mono" style={{ fontSize: 12, color: "var(--muted)", marginBottom: 40 }}>Atualizado em maio de 2026</div>
+      <div style={{ lineHeight: 1.8, color: "var(--fg)", fontSize: 15 }}>{children}</div>
+    </div>
+  );
+}
+
+function TermsPage({ go, anchor }){
+  useEffectP(() => {
+    if (anchor) {
+      setTimeout(() => {
+        const el = document.getElementById(anchor);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    }
+  }, [anchor]);
+
+  const h2 = { fontWeight: 700, fontSize: 18, marginTop: 32, marginBottom: 10 };
+  const p = { marginBottom: 12 };
+
+  return (
+    <LegalPage title="Termos de uso" go={go}>
+      <p style={p}>Ao acessar e utilizar o resumosmed você concorda com os termos abaixo. Leia com atenção antes de criar sua conta ou realizar uma compra.</p>
+
+      <div style={h2}>1. O serviço</div>
+      <p style={p}>O resumosmed é uma plataforma de venda de resumos de medicina em formato digital, disponibilizados por meio de leitor online protegido. O acesso aos materiais é pessoal, intransferível e vitalício — desde que sua conta permaneça ativa.</p>
+
+      <div style={h2}>2. Acesso e uso</div>
+      <p style={p}>Cada conta é individual. É proibido compartilhar credenciais de acesso, redistribuir os materiais, reproduzi-los total ou parcialmente, ou revendê-los sob qualquer forma. Todos os PDFs são protegidos e contêm marca d'água com o email do usuário.</p>
+      <p style={p}>O uso indevido pode resultar em suspensão imediata da conta sem direito a reembolso.</p>
+
+      <div style={h2}>3. Pagamentos</div>
+      <p style={p}>Os pagamentos são processados pelo Mercado Pago. O resumosmed não armazena dados de cartão de crédito. O acesso ao material é liberado imediatamente após a confirmação do pagamento.</p>
+
+      <div id="reembolso" style={h2}>4. Política de reembolso</div>
+      <p style={p}>Oferecemos garantia de 7 dias a partir da data da compra. Para solicitar reembolso, entre em contato pelo email de suporte. O reembolso é processado pelo Mercado Pago em até 10 dias úteis. Após 7 dias, não são aceitas solicitações de reembolso.</p>
+
+      <div style={h2}>5. Atualizações</div>
+      <p style={p}>Os resumos são atualizados periodicamente. Compras realizadas dão direito a todas as versões futuras do mesmo material, sem custo adicional.</p>
+
+      <div style={h2}>6. Limitação de responsabilidade</div>
+      <p style={p}>Os resumos têm fins educacionais e não substituem a leitura das diretrizes clínicas, livros-texto ou orientação médica profissional. O resumosmed não se responsabiliza por decisões clínicas baseadas exclusivamente em seu conteúdo.</p>
+
+      <div style={h2}>7. Contato</div>
+      <p style={p}>Dúvidas? Entre em contato pelo email de suporte disponível no rodapé do site.</p>
+    </LegalPage>
+  );
+}
+
+function PrivacyPage({ go }){
+  const h2 = { fontWeight: 700, fontSize: 18, marginTop: 32, marginBottom: 10 };
+  const p = { marginBottom: 12 };
+
+  return (
+    <LegalPage title="Política de privacidade" go={go}>
+      <p style={p}>Esta política descreve como o resumosmed coleta, usa e protege seus dados pessoais, em conformidade com a Lei Geral de Proteção de Dados (LGPD — Lei 13.709/2018).</p>
+
+      <div style={h2}>1. Dados coletados</div>
+      <p style={p}>Coletamos os seguintes dados ao criar sua conta e realizar compras:</p>
+      <ul style={{ paddingLeft: 20, marginBottom: 12, lineHeight: 2 }}>
+        <li><strong>Nome e email</strong> — para identificação e acesso à conta</li>
+        <li><strong>CPF</strong> — exigido pelo processador de pagamentos (Mercado Pago) para emissão fiscal; não armazenamos o CPF em nosso banco de dados</li>
+        <li><strong>Histórico de compras</strong> — produtos adquiridos, valor e método de pagamento</li>
+        <li><strong>Logs de acesso ao leitor</strong> — data, hora e duração de cada sessão de leitura, para fins de segurança e proteção contra pirataria</li>
+      </ul>
+
+      <div style={h2}>2. Uso dos dados</div>
+      <p style={p}>Seus dados são usados exclusivamente para:</p>
+      <ul style={{ paddingLeft: 20, marginBottom: 12, lineHeight: 2 }}>
+        <li>Gerenciar sua conta e liberar acesso aos materiais comprados</li>
+        <li>Processar pagamentos via Mercado Pago</li>
+        <li>Proteger os materiais contra redistribuição não autorizada (marca d'água)</li>
+        <li>Enviar comunicações relacionadas à conta (reset de senha, confirmações)</li>
+      </ul>
+      <p style={p}>Não vendemos, alugamos ou compartilhamos seus dados com terceiros para fins comerciais.</p>
+
+      <div style={h2}>3. Marca d'água</div>
+      <p style={p}>Todos os PDFs exibidos no leitor contêm uma marca d'água invisível com o email e identificador único do usuário. Isso serve exclusivamente para rastrear distribuições não autorizadas do material.</p>
+
+      <div style={h2}>4. Armazenamento e segurança</div>
+      <p style={p}>Os dados são armazenados na infraestrutura do Supabase (servidores na região us-east-1) com criptografia em repouso e em trânsito. Senhas nunca são armazenadas — apenas hashes gerenciados pelo Supabase Auth.</p>
+
+      <div style={h2}>5. Seus direitos (LGPD)</div>
+      <p style={p}>Você tem direito a acessar, corrigir ou excluir seus dados pessoais a qualquer momento. Para exercer esses direitos, entre em contato pelo email de suporte. Solicitações de exclusão de conta serão processadas em até 30 dias.</p>
+
+      <div style={h2}>6. Cookies</div>
+      <p style={p}>Usamos apenas cookies essenciais para manter sua sessão autenticada. Não utilizamos cookies de rastreamento ou publicidade de terceiros.</p>
+
+      <div style={h2}>7. Contato</div>
+      <p style={p}>Para questões relacionadas à privacidade, entre em contato pelo email de suporte disponível no site.</p>
+    </LegalPage>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+//  404
+// ─────────────────────────────────────────────────────────
+function NotFound({ go }){
+  return (
+    <div className="pagewrap page" style={{ paddingTop: 80, textAlign: "center" }}>
+      <div className="mono" style={{ fontSize: 72, fontWeight: 700, color: "var(--line-strong)", marginBottom: 16 }}>404</div>
+      <div className="display" style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Página não encontrada</div>
+      <p style={{ color: "var(--muted)", marginBottom: 28 }}>O link que você acessou não existe ou foi removido.</p>
+      <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+        <button className="btn primary" onClick={() => go({ name: "catalog" })}>Ver catálogo</button>
+        <button className="btn secondary" onClick={() => go({ name: "landing" })}>Início</button>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { Landing, Catalog, Product, Cart, HERO_COPY, ProductPagePreview, AccountSettings, TermsPage, PrivacyPage, NotFound });

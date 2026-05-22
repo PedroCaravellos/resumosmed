@@ -53,8 +53,8 @@ Deno.serve(async (req) => {
   console.log("[mp-webhook] manifest:", manifest);
 
   if (receivedHash && receivedHash !== expectedHash) {
-    // Loga a discrepância mas não rejeita — o pagamento é verificado via GET /v1/payments/{id}
-    console.warn("[mp-webhook] Assinatura divergente (continuando — validação via API MP)");
+    console.warn("[mp-webhook] Assinatura inválida");
+    return new Response("Unauthorized", { status: 401 });
   }
 
   // Responde 200 imediatamente; processa em background

@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /library
+Disallow: /reader
+
+Sitemap: https://resumosmed.com/sitemap.xml
