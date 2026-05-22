@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>resumosmed — Resumos de Medicina</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Instrument+Serif:ital@0;1&family=DM+Serif+Display&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+  /* ────────── Theme tokens (driven by Tweaks) ────────── */
+  :root{
+    --bg: #FAF6EF;
+    --surface: #FFFFFF;
+    --fg: #1B1A17;
+    --muted: #6E6A60;
+    --line: #E8E1D4;
+    --line-strong: #DDD3BF;
+
+    --primary: #FF6B5B;
+    --primary-ink: #FFFFFF;
+    --acc-1: #FFD66B;  /* highlighter yellow */
+    --acc-2: #7BC47F;  /* mint */
+    --acc-3: #B5A6F0;  /* lavender */
+    --acc-4: #6FB6E0;  /* sky */
+
+    --radius-lg: 22px;
+    --radius-md: 14px;
+    --radius-sm: 9px;
+
+    --pad-page: clamp(24px, 4vw, 64px);
+
+    /* density */
+    --gap-xl: 96px;
+    --gap-lg: 56px;
+    --gap-md: 24px;
+    --gap-sm: 14px;
+    --gap-xs: 8px;
+    --card-pad: 22px;
+    --hero-pad-y: 80px;
+
+    --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+    --font-body: "Manrope", ui-sans-serif, system-ui, sans-serif;
+    --font-accent: "Instrument Serif", Georgia, serif;
+    --font-mono: "Geist Mono", ui-monospace, "SF Mono", monospace;
+
+    --shadow-card: 0 1px 0 rgba(0,0,0,.02), 0 10px 30px -16px rgba(35,30,15,.18);
+    --shadow-pop: 0 1px 0 rgba(0,0,0,.02), 0 22px 50px -22px rgba(35,30,15,.30);
+  }
+
+  /* Density variants */
+  [data-density="compact"]{ --gap-xl: 64px; --gap-lg: 36px; --gap-md: 16px; --gap-sm: 10px; --card-pad: 16px; --hero-pad-y: 56px; --radius-lg: 18px; --radius-md: 12px;}
+  [data-density="comfy"]{ --gap-xl: 128px; --gap-lg: 80px; --gap-md: 32px; --gap-sm: 18px; --card-pad: 28px; --hero-pad-y: 112px; --radius-lg: 28px; --radius-md: 18px;}
+
+  /* Type variants */
+  [data-type="modern"]{
+    --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+    --font-body: "Manrope", ui-sans-serif, system-ui, sans-serif;
+    --font-accent: "Instrument Serif", Georgia, serif;
+  }
+  [data-type="editorial"]{
+    --font-display: "Instrument Serif", Georgia, serif;
+    --font-body: "Manrope", ui-sans-serif, system-ui, sans-serif;
+    --font-accent: "Bricolage Grotesque", sans-serif;
+  }
+  [data-type="serious"]{
+    --font-display: "DM Serif Display", Georgia, serif;
+    --font-body: "Geist", ui-sans-serif, system-ui, sans-serif;
+    --font-accent: "DM Serif Display", Georgia, serif;
+  }
+
+  /* Dark mode */
+  [data-dark="true"]{
+    --bg: #15140F;
+    --surface: #1E1C16;
+    --fg: #F5EFE2;
+    --muted: #9D998A;
+    --line: #2B2820;
+    --line-strong: #3A362A;
+    --primary-ink: #15140F;
+    --shadow-card: 0 1px 0 rgba(255,255,255,.03), 0 10px 30px -16px rgba(0,0,0,.7);
+    --shadow-pop: 0 1px 0 rgba(255,255,255,.04), 0 22px 50px -22px rgba(0,0,0,.85);
+  }
+
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; background: var(--bg); color: var(--fg); font-family: var(--font-body); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  body{ font-size: 16px; line-height: 1.5; transition: background .25s ease, color .25s ease; min-height: 100vh; }
+
+  a{ color: inherit; text-decoration: none; }
+  button{ font-family: inherit; }
+
+  ::selection{ background: var(--primary); color: var(--primary-ink); }
+
+  /* Reusable */
+  .page{ max-width: 1280px; margin: 0 auto; padding-left: var(--pad-page); padding-right: var(--pad-page); }
+  .display{ font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
+  .serif{ font-family: var(--font-accent); font-style: italic; font-weight: 400; }
+  .mono{ font-family: var(--font-mono); font-feature-settings: "ss01","tnum"; letter-spacing: -0.01em;}
+  .pill{ display:inline-flex; align-items:center; gap:6px; padding: 5px 11px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 12px; font-weight: 500;}
+  .btn{ display:inline-flex; align-items:center; gap:8px; padding: 12px 18px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--fg); font-weight: 600; font-size: 14px; cursor: pointer; transition: transform .12s ease, background .15s ease, border-color .15s ease, color .15s ease; }
+  .btn:hover{ transform: translateY(-1px); }
+  .btn.primary{ background: var(--primary); color: var(--primary-ink); border-color: var(--primary); }
+  .btn.primary:hover{ filter: brightness(1.05); }
+  .btn.ghost{ background: transparent; border-color: transparent; }
+  .btn.lg{ padding: 16px 22px; font-size: 15px; }
+
+  /* Card styles (TWEAKABLE) */
+  [data-card="soft"] .card{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+  [data-card="outline"] .card{ background: transparent; border: 1.5px solid var(--line-strong); border-radius: var(--radius-md); box-shadow: none; }
+  [data-card="sticker"] .card{ background: var(--surface); border: 1.5px solid var(--fg); border-radius: var(--radius-lg); box-shadow: 6px 6px 0 var(--fg); }
+  [data-card="sticker"] .card:nth-child(3n){ transform: rotate(-.6deg); }
+  [data-card="sticker"] .card:nth-child(3n+1){ transform: rotate(.4deg); }
+
+  /* Marquee */
+  @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .marquee{ overflow: hidden; }
+  .marquee-track{ display: inline-flex; gap: 56px; padding: 0 28px; white-space: nowrap; animation: marquee 38s linear infinite; }
+
+  /* Blob blink (decorative) */
+  @keyframes wiggle { 0%,100%{ transform: rotate(-3deg);} 50%{ transform: rotate(3deg);} }
+  @keyframes float { 0%,100%{ transform: translateY(0);} 50%{ transform: translateY(-6px);} }
+  @keyframes ecg-dash { to { stroke-dashoffset: -1000; } }
+  @keyframes spin-slow { to { transform: rotate(360deg); } }
+
+  /* Page transition */
+  @keyframes pageIn { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
+  .pagewrap{ animation: pageIn .32s cubic-bezier(.2,.7,.1,1); }
+
+  /* Focus rings */
+  :focus-visible{ outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
+
+  /* anti-piracy: bloqueia print de toda a página */
+  @media print {
+    body * { visibility: hidden !important; }
+    body::before {
+      content: "Impressão bloqueada — conteúdo protegido por watermark de rastreio.";
+      visibility: visible !important;
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Bricolage Grotesque", sans-serif;
+      font-size: 24px; text-align: center; padding: 40px;
+      color: #1B1A17;
+    }
+  }
+
+  /* Reader click zones — mostram setas no hover */
+  .reader-zone:hover .reader-zone-arrow{ opacity: 1 !important; transform: translateY(-50%) scale(1.06); }
+  .reader-zone:hover.reader-zone-prev{ background: linear-gradient(to right, color-mix(in oklab, var(--fg) 8%, transparent), transparent) !important; }
+  .reader-zone:hover.reader-zone-next{ background: linear-gradient(to left,  color-mix(in oklab, var(--fg) 8%, transparent), transparent) !important; }
+
+  /* anti-piracy: blur quando a janela perde o foco */
+  body.__blurred .pdf-reader-frame canvas{
+    filter: blur(18px) saturate(0);
+    transition: filter .2s ease;
+  }
+  body.__blurred .pdf-reader-frame::after{
+    content: "Conteúdo oculto enquanto a janela está fora de foco";
+    position: absolute; inset: 0; display: flex;
+    align-items: center; justify-content: center;
+    color: var(--fg); font-weight: 600; font-size: 16px;
+    background: color-mix(in oklab, var(--surface) 78%, transparent);
+    z-index: 50; pointer-events: none;
+    backdrop-filter: blur(2px);
+  }
+  .col{ display:flex; flex-direction:column; }
+  .gap-sm{ gap: var(--gap-sm);} .gap-md{ gap: var(--gap-md);} .gap-lg{ gap: var(--gap-lg);}
+  .grow{ flex: 1 1 auto; }
+  .center{ align-items:center; justify-content:center; }
+  .between{ justify-content: space-between; }
+  .wrap{ flex-wrap: wrap; }
+
+  /* hide horizontal scroll on tag rail */
+  .tag-rail{ display:flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .tag-rail::-webkit-scrollbar{ display: none; }
+
+  /* Tag chip */
+  .chip{ display:inline-flex; align-items:center; gap:6px; padding: 7px 13px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 13px; font-weight: 500; color: var(--fg); cursor: pointer; white-space: nowrap; transition: all .15s ease; }
+  .chip:hover{ border-color: var(--line-strong); }
+  .chip.active{ background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+  /* spinner blob */
+  .blink{ width:8px; height:8px; border-radius:999px; background: var(--acc-2); display:inline-block; box-shadow: 0 0 0 0 rgba(123,196,127,.6); animation: pulse 1.8s ease-out infinite; }
+  @keyframes pulse { 0%{ box-shadow:0 0 0 0 rgba(123,196,127,.45);} 70%{ box-shadow:0 0 0 12px rgba(123,196,127,0);} 100%{ box-shadow:0 0 0 0 rgba(123,196,127,0);} }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- PDF.js (visualização sem download/cópia) -->
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+
+  <!-- Supabase SDK + client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+  <script src="supabase.js"></script>
+
+  <!-- React + Babel -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="shared.jsx"></script>
+  <script type="text/babel" src="data.jsx"></script>
+  <script type="text/babel" src="auth.jsx"></script>
+  <script type="text/babel" src="pages.jsx"></script>
+  <script type="text/babel" src="library.jsx"></script>
+  <script type="text/babel" src="admin.jsx"></script>
+  <script type="text/babel" src="app.jsx"></script>
+</body>
+</html>
