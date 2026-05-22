@@ -1155,6 +1155,7 @@ function AccountSettings({ go, currentUser, refreshUser }){
   const [nameMsg, setNameMsg] = useStateP(null);
   const [nameBusy, setNameBusy] = useStateP(false);
 
+  const [currentPass, setCurrentPass] = useStateP("");
   const [newPass, setNewPass] = useStateP("");
   const [confirmPass, setConfirmPass] = useStateP("");
   const [passMsg, setPassMsg] = useStateP(null);
@@ -1218,15 +1219,20 @@ function AccountSettings({ go, currentUser, refreshUser }){
 
   const savePassword = async (e) => {
     e.preventDefault();
-    if (newPass.length < 8) { setPassMsg({ ok: false, text: "Mínimo 8 caracteres." }); return; }
-    if (!/\d/.test(newPass)) { setPassMsg({ ok: false, text: "Inclua ao menos um número." }); return; }
+    if (!currentPass) { setPassMsg({ ok: false, text: "Informe a senha atual." }); return; }
+    if (newPass.length < 8) { setPassMsg({ ok: false, text: "Nova senha: mínimo 8 caracteres." }); return; }
+    if (!/\d/.test(newPass)) { setPassMsg({ ok: false, text: "Nova senha: inclua ao menos um número." }); return; }
     if (newPass !== confirmPass) { setPassMsg({ ok: false, text: "As senhas não coincidem." }); return; }
+    if (currentPass === newPass) { setPassMsg({ ok: false, text: "A nova senha deve ser diferente da atual." }); return; }
     setPassBusy(true); setPassMsg(null);
     try {
+      // Verifica senha atual antes de trocar
+      const { error: authErr } = await sb.auth.signInWithPassword({ email: currentUser.email, password: currentPass });
+      if (authErr) { setPassMsg({ ok: false, text: "Senha atual incorreta." }); return; }
       const { error } = await sb.auth.updateUser({ password: newPass });
       if (error) throw error;
       setPassMsg({ ok: true, text: "Senha atualizada!" });
-      setNewPass(""); setConfirmPass("");
+      setCurrentPass(""); setNewPass(""); setConfirmPass("");
     } catch (err) {
       setPassMsg({ ok: false, text: "Erro: " + (err.message || err) });
     } finally {
@@ -1341,17 +1347,21 @@ function AccountSettings({ go, currentUser, refreshUser }){
         </div>
         <form onSubmit={savePassword}>
           <div style={{ marginBottom: 14 }}>
+            <label style={S.lbl}>Senha atual</label>
+            <input className="input" type="password" value={currentPass} onChange={e => setCurrentPass(e.target.value)} placeholder="Digite sua senha atual" style={{ width: "100%" }} />
+          </div>
+          <div style={{ marginBottom: 14 }}>
             <label style={S.lbl}>Nova senha</label>
             <input className="input" type="password" value={newPass} onChange={e => setNewPass(e.target.value)} placeholder="Mínimo 8 caracteres e 1 número" style={{ width: "100%" }} />
           </div>
           <div>
-            <label style={S.lbl}>Confirmar senha</label>
+            <label style={S.lbl}>Confirmar nova senha</label>
             <input className="input" type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} placeholder="Repita a nova senha" style={{ width: "100%" }} />
           </div>
           {passMsg && <div style={S.msg(passMsg.ok)}>{passMsg.text}</div>}
-          <button className="btn primary" type="submit" disabled={passBusy || !newPass}
+          <button className="btn primary" type="submit" disabled={passBusy || !currentPass || !newPass}
             style={{ marginTop: 18, opacity: passBusy ? .7 : 1 }}>
-            {passBusy ? "Salvando…" : "Atualizar senha"}
+            {passBusy ? "Verificando…" : "Atualizar senha"}
           </button>
         </form>
       </div>
