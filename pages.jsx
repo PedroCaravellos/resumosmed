@@ -1,6 +1,6 @@
 // pages.jsx — Landing, Catalog, Product, Cart
 
-const { useState: useStateP, useMemo: useMemoP, useEffect: useEffectP } = React;
+const { useState: useStateP, useMemo: useMemoP, useEffect: useEffectP, useRef: useRefP } = React;
 
 // ─────────────────────────────────────────────────────────
 //  HERO COPY VARIANTS  (tweakable)
@@ -1146,6 +1146,11 @@ function PaymentReturn({ go, clearCart, refreshUser, currentUser, cart }){
 //  ACCOUNT SETTINGS
 // ─────────────────────────────────────────────────────────
 function AccountSettings({ go, currentUser, refreshUser }){
+  // ── all hooks first (rules of hooks) ──
+  const [avatarHover, setAvatarHover] = useStateP(false);
+  const [avatarBusy, setAvatarBusy] = useStateP(false);
+  const fileRef = useRefP(null);
+
   const [name, setName] = useStateP(currentUser?.name || "");
   const [nameMsg, setNameMsg] = useStateP(null);
   const [nameBusy, setNameBusy] = useStateP(false);
@@ -1155,10 +1160,53 @@ function AccountSettings({ go, currentUser, refreshUser }){
   const [passMsg, setPassMsg] = useStateP(null);
   const [passBusy, setPassBusy] = useStateP(false);
 
-  if (!currentUser) {
-    go({ name: "login" });
-    return null;
-  }
+  const [messages, setMessages] = useStateP([]);
+  const [msgText, setMsgText] = useStateP("");
+  const [sendBusy, setSendBusy] = useStateP(false);
+  const [chatLoading, setChatLoading] = useStateP(true);
+  const chatEndRef = useRefP(null);
+
+  useEffectP(() => {
+    if (!currentUser?.id) { setChatLoading(false); return; }
+    let mounted = true;
+    fetchSupportMessages(currentUser.id).then(msgs => {
+      if (mounted) { setMessages(msgs); setChatLoading(false); }
+    });
+    const ch = sb.channel("support-" + currentUser.id)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${currentUser.id}` },
+        payload => { if (mounted) setMessages(prev => [...prev, payload.new]); })
+      .subscribe();
+    return () => { mounted = false; sb.removeChannel(ch); };
+  }, [currentUser?.id]);
+
+  useEffectP(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  if (!currentUser) { go({ name: "login" }); return null; }
+
+  // ── handlers ──
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) { alert("Imagem muito grande. Máximo 3 MB."); return; }
+    setAvatarBusy(true);
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${currentUser.id}.${ext}`;
+      const { error: upErr } = await sb.storage.from("avatars").upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = sb.storage.from("avatars").getPublicUrl(path);
+      await sb.auth.updateUser({ data: { avatar_url: publicUrl } });
+      await sb.from("profiles").update({ avatar_url: publicUrl }).eq("id", currentUser.id);
+      await refreshUser?.();
+    } catch (err) {
+      alert("Erro ao enviar foto: " + (err.message || err));
+    } finally {
+      setAvatarBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
 
   const saveName = async (e) => {
     e.preventDefault();
@@ -1173,7 +1221,7 @@ function AccountSettings({ go, currentUser, refreshUser }){
       await refreshUser?.();
       setNameMsg({ ok: true, text: "Nome atualizado!" });
     } catch (err) {
-      setNameMsg({ ok: false, text: "Erro ao salvar: " + (err.message || err) });
+      setNameMsg({ ok: false, text: "Erro: " + (err.message || err) });
     } finally {
       setNameBusy(false);
     }
@@ -1191,56 +1239,190 @@ function AccountSettings({ go, currentUser, refreshUser }){
       setPassMsg({ ok: true, text: "Senha atualizada!" });
       setNewPass(""); setConfirmPass("");
     } catch (err) {
-      setPassMsg({ ok: false, text: "Erro ao atualizar: " + (err.message || err) });
+      setPassMsg({ ok: false, text: "Erro: " + (err.message || err) });
     } finally {
       setPassBusy(false);
     }
   };
 
-  const section = { marginBottom: 32, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)", padding: 28 };
-  const label = { fontSize: 12, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6, display: "block" };
-  const msgStyle = (ok) => ({ marginTop: 10, fontSize: 13, color: ok ? "var(--acc-2)" : "var(--primary)", fontWeight: 500 });
+  const sendMessage = async (e) => {
+    e.preventDefault();
+    const text = msgText.trim();
+    if (!text || sendBusy) return;
+    setSendBusy(true);
+    const optimisticId = "opt-" + Date.now();
+    setMsgText("");
+    setMessages(prev => [...prev, { id: optimisticId, user_id: currentUser.id, message: text, is_admin: false, created_at: new Date().toISOString() }]);
+    const { error } = await sendSupportMessage(currentUser.id, text, false);
+    if (error) {
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+      setMsgText(text);
+    }
+    setSendBusy(false);
+  };
+
+  // ── derived ──
+  const initials = (currentUser.name || currentUser.email || "?")
+    .split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+  const avatarUrl = currentUser.avatar_url;
+  const memberSince = currentUser.created_at
+    ? new Date(currentUser.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
+    : null;
+
+  const S = {
+    section: { marginBottom: 20, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "var(--radius-lg)", padding: "24px 28px" },
+    stitle: { fontWeight: 700, fontSize: 14, marginBottom: 20, display: "flex", alignItems: "center", gap: 8, color: "var(--fg)" },
+    lbl: { fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 6, display: "block" },
+    msg: (ok) => ({ marginTop: 10, fontSize: 13, color: ok ? "var(--acc-2)" : "var(--primary)", fontWeight: 600 }),
+  };
 
   return (
-    <div className="pagewrap page" style={{ paddingTop: 48, maxWidth: 560 }}>
-      <button className="btn ghost" onClick={() => go({ name: "library" })} style={{ marginBottom: 24, gap: 6 }}>
+    <div className="pagewrap page" style={{ paddingTop: 40, maxWidth: 580 }}>
+      <button className="btn ghost" onClick={() => go({ name: "library" })} style={{ marginBottom: 28, gap: 6 }}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-        Voltar
+        Minha biblioteca
       </button>
-      <div className="display" style={{ fontSize: 28, fontWeight: 700, marginBottom: 32 }}>Configurações da conta</div>
 
-      <div style={section}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>Dados pessoais</div>
+      {/* ── Profile hero ── */}
+      <div style={{ textAlign: "center", marginBottom: 36 }}>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => !avatarBusy && fileRef.current?.click()}
+          onMouseEnter={() => setAvatarHover(true)}
+          onMouseLeave={() => setAvatarHover(false)}
+          style={{
+            width: 96, height: 96, borderRadius: "50%",
+            margin: "0 auto 14px",
+            background: avatarUrl ? `url(${avatarUrl}?t=${currentUser.id}) center/cover` : "var(--primary)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", position: "relative", overflow: "hidden",
+            boxShadow: "0 0 0 3px var(--bg), 0 0 0 5px var(--line-strong)",
+          }}
+        >
+          {!avatarUrl && <span style={{ color: "var(--primary-ink)", fontWeight: 800, fontSize: 28, userSelect: "none" }}>{initials}</span>}
+          <div style={{
+            position: "absolute", inset: 0, background: "rgba(0,0,0,.52)",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5,
+            opacity: avatarHover || avatarBusy ? 1 : 0,
+            transition: "opacity .18s ease",
+          }}>
+            {avatarBusy
+              ? <div style={{ width: 18, height: 18, border: "2px solid rgba(255,255,255,.3)", borderTopColor: "white", borderRadius: "50%", animation: "spin .7s linear infinite" }} />
+              : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            }
+            {!avatarBusy && <span style={{ color: "white", fontSize: 9, fontWeight: 700, letterSpacing: ".08em" }}>TROCAR FOTO</span>}
+          </div>
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
+        <div style={{ fontWeight: 800, fontSize: 22, lineHeight: 1.2 }}>{currentUser.name || "Sem nome"}</div>
+        <div style={{ color: "var(--muted)", fontSize: 14, marginTop: 5 }}>{currentUser.email}</div>
+        {memberSince && <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>Membro desde {memberSince}</div>}
+      </div>
+
+      {/* ── Dados pessoais ── */}
+      <div style={S.section}>
+        <div style={S.stitle}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Dados pessoais
+        </div>
         <form onSubmit={saveName}>
           <div style={{ marginBottom: 14 }}>
-            <label style={label}>Nome</label>
+            <label style={S.lbl}>Nome</label>
             <input className="input" value={name} onChange={e => setName(e.target.value)} style={{ width: "100%" }} />
           </div>
-          <div style={{ marginBottom: 4 }}>
-            <label style={label}>Email</label>
-            <input className="input" value={currentUser.email} disabled style={{ width: "100%", opacity: .6 }} />
+          <div>
+            <label style={S.lbl}>Email <span style={{ fontSize: 10, fontWeight: 400, textTransform: "none" }}>(não pode ser alterado)</span></label>
+            <input className="input" value={currentUser.email} disabled style={{ width: "100%", opacity: .45 }} />
           </div>
-          {nameMsg && <div style={msgStyle(nameMsg.ok)}>{nameMsg.text}</div>}
-          <button className="btn primary" type="submit" disabled={nameBusy || name.trim() === currentUser.name} style={{ marginTop: 16, opacity: nameBusy ? .7 : 1 }}>
+          {nameMsg && <div style={S.msg(nameMsg.ok)}>{nameMsg.text}</div>}
+          <button className="btn primary" type="submit"
+            disabled={nameBusy || !name.trim() || name.trim() === (currentUser.name || "")}
+            style={{ marginTop: 18, opacity: nameBusy ? .7 : 1 }}>
             {nameBusy ? "Salvando…" : "Salvar nome"}
           </button>
         </form>
       </div>
 
-      <div style={section}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 20 }}>Trocar senha</div>
+      {/* ── Segurança ── */}
+      <div style={S.section}>
+        <div style={S.stitle}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          Segurança
+        </div>
         <form onSubmit={savePassword}>
           <div style={{ marginBottom: 14 }}>
-            <label style={label}>Nova senha</label>
+            <label style={S.lbl}>Nova senha</label>
             <input className="input" type="password" value={newPass} onChange={e => setNewPass(e.target.value)} placeholder="Mínimo 8 caracteres e 1 número" style={{ width: "100%" }} />
           </div>
-          <div style={{ marginBottom: 4 }}>
-            <label style={label}>Confirmar senha</label>
+          <div>
+            <label style={S.lbl}>Confirmar senha</label>
             <input className="input" type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} placeholder="Repita a nova senha" style={{ width: "100%" }} />
           </div>
-          {passMsg && <div style={msgStyle(passMsg.ok)}>{passMsg.text}</div>}
-          <button className="btn primary" type="submit" disabled={passBusy || !newPass} style={{ marginTop: 16, opacity: passBusy ? .7 : 1 }}>
+          {passMsg && <div style={S.msg(passMsg.ok)}>{passMsg.text}</div>}
+          <button className="btn primary" type="submit" disabled={passBusy || !newPass}
+            style={{ marginTop: 18, opacity: passBusy ? .7 : 1 }}>
             {passBusy ? "Salvando…" : "Atualizar senha"}
+          </button>
+        </form>
+      </div>
+
+      {/* ── Suporte ── */}
+      <div style={S.section}>
+        <div style={S.stitle}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          Suporte
+        </div>
+        <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16, lineHeight: 1.6 }}>
+          Dúvida, problema ou sugestão? Nos chame aqui — respondemos em breve.
+        </div>
+
+        {/* Chat window */}
+        <div style={{
+          border: "1px solid var(--line)", borderRadius: 12,
+          height: 320, overflowY: "auto",
+          padding: "14px 12px", marginBottom: 10,
+          display: "flex", flexDirection: "column", gap: 10,
+          background: "var(--bg)",
+        }}>
+          {chatLoading && (
+            <div style={{ margin: "auto", color: "var(--muted)", fontSize: 13 }}>Carregando...</div>
+          )}
+          {!chatLoading && messages.length === 0 && (
+            <div style={{ margin: "auto", textAlign: "center", color: "var(--muted)", fontSize: 14, lineHeight: 1.7 }}>
+              <div style={{ fontSize: 30, marginBottom: 8 }}>👋</div>
+              Tem alguma dúvida ou problema?<br/>Escreve aqui que a gente responde rápido.
+            </div>
+          )}
+          {messages.map((msg) => {
+            const isAdm = msg.is_admin;
+            const time = new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+            return (
+              <div key={msg.id} style={{ display: "flex", flexDirection: "column", alignItems: isAdm ? "flex-start" : "flex-end" }}>
+                {isAdm && <div style={{ fontSize: 9, fontWeight: 700, color: "var(--primary)", letterSpacing: ".1em", marginBottom: 3, paddingLeft: 4 }}>SUPORTE</div>}
+                <div style={{
+                  maxWidth: "76%", padding: "9px 14px",
+                  borderRadius: isAdm ? "4px 14px 14px 14px" : "14px 4px 14px 14px",
+                  background: isAdm ? "var(--surface)" : "var(--primary)",
+                  color: isAdm ? "var(--fg)" : "var(--primary-ink)",
+                  border: isAdm ? "1px solid var(--line)" : "none",
+                  fontSize: 14, lineHeight: 1.5, wordBreak: "break-word",
+                }}>
+                  {msg.message}
+                </div>
+                <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 3, paddingLeft: 2, paddingRight: 2 }}>{time}</div>
+              </div>
+            );
+          })}
+          <div ref={chatEndRef} />
+        </div>
+
+        <form onSubmit={sendMessage} style={{ display: "flex", gap: 8 }}>
+          <input className="input" value={msgText} onChange={e => setMsgText(e.target.value)}
+            placeholder="Digite sua mensagem..." style={{ flex: 1 }} />
+          <button className="btn primary" type="submit" disabled={sendBusy || !msgText.trim()}
+            style={{ opacity: sendBusy ? .7 : 1, padding: "0 20px", whiteSpace: "nowrap" }}>
+            Enviar
           </button>
         </form>
       </div>

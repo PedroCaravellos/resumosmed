@@ -37,6 +37,7 @@ function AdminDashboard({ go, currentUser, onLogout }){
           <TabBtn active={tab==="products"} onClick={()=>setTab("products")}>Resumos publicados</TabBtn>
           <TabBtn active={tab==="history"} onClick={()=>setTab("history")}>Histórico de compras</TabBtn>
           <TabBtn active={tab==="users"} onClick={()=>setTab("users")}>Usuários & atividade</TabBtn>
+          <TabBtn active={tab==="suporte"} onClick={()=>setTab("suporte")}>Suporte</TabBtn>
         </div>
       </section>
 
@@ -45,6 +46,7 @@ function AdminDashboard({ go, currentUser, onLogout }){
         {tab === "products" && <AdminProducts go={go}/>}
         {tab === "history"  && <AdminHistory/>}
         {tab === "users"    && <AdminUsers/>}
+        {tab === "suporte"  && <AdminSupport/>}
       </section>
     </div>
   );
@@ -1000,6 +1002,197 @@ function UserLogsModal({ user, onClose }){
           <button className="btn" onClick={onClose}>Fechar</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─────────── Support ───────────
+function AdminSupport(){
+  const [allMsgs, setAllMsgs] = useStateAdmin([]);
+  const [profiles, setProfiles] = useStateAdmin({});
+  const [selected, setSelected] = useStateAdmin(null);
+  const [replyText, setReplyText] = useStateAdmin("");
+  const [replyBusy, setReplyBusy] = useStateAdmin(false);
+  const [loading, setLoading] = useStateAdmin(true);
+  const chatEndRef = useRefAdmin(null);
+
+  useEffectAdmin(() => {
+    let mounted = true;
+    fetchAllSupportMessages().then(async msgs => {
+      if (!mounted) return;
+      setAllMsgs(msgs);
+      setLoading(false);
+      const userIds = [...new Set(msgs.map(m => m.user_id))];
+      if (userIds.length) {
+        const { data: profs } = await sb.from("profiles").select("id, name, email").in("id", userIds);
+        if (mounted && profs) setProfiles(Object.fromEntries(profs.map(p => [p.id, p])));
+      }
+    });
+    const ch = sb.channel("admin-support-all")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages" }, payload => {
+        if (!mounted) return;
+        setAllMsgs(prev => [...prev, payload.new]);
+        const uid = payload.new.user_id;
+        setProfiles(prev => {
+          if (prev[uid]) return prev;
+          sb.from("profiles").select("id, name, email").eq("id", uid).maybeSingle().then(({ data: p }) => {
+            if (p && mounted) setProfiles(pr => ({ ...pr, [uid]: p }));
+          });
+          return prev;
+        });
+      })
+      .subscribe();
+    return () => { mounted = false; sb.removeChannel(ch); };
+  }, []);
+
+  useEffectAdmin(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [allMsgs.length, selected]);
+
+  const threads = useMemoAdmin(() => {
+    const byUser = {};
+    for (const m of allMsgs) {
+      if (!byUser[m.user_id]) byUser[m.user_id] = [];
+      byUser[m.user_id].push(m);
+    }
+    return Object.entries(byUser).map(([uid, msgs]) => ({
+      userId: uid,
+      profile: profiles[uid] || { name: uid.slice(0, 8) + "…", email: "" },
+      msgs,
+      lastMsg: msgs[msgs.length - 1],
+    })).sort((a, b) => new Date(b.lastMsg.created_at) - new Date(a.lastMsg.created_at));
+  }, [allMsgs, profiles]);
+
+  const thread = useMemoAdmin(() =>
+    selected ? (threads.find(t => t.userId === selected)?.msgs || []) : [],
+    [threads, selected]
+  );
+  const selProfile = threads.find(t => t.userId === selected)?.profile;
+
+  const sendReply = async (e) => {
+    e.preventDefault();
+    const text = replyText.trim();
+    if (!text || !selected || replyBusy) return;
+    setReplyBusy(true);
+    setReplyText("");
+    const optimisticId = "opt-" + Date.now();
+    setAllMsgs(prev => [...prev, { id: optimisticId, user_id: selected, message: text, is_admin: true, created_at: new Date().toISOString() }]);
+    const { error } = await sendSupportMessage(selected, text, true);
+    if (error) {
+      setAllMsgs(prev => prev.filter(m => m.id !== optimisticId));
+      setReplyText(text);
+      alert("Erro ao enviar: " + error);
+    }
+    setReplyBusy(false);
+  };
+
+  const fmtTime = (d) => new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const fmtDate = (d) => new Date(d).toLocaleDateString("pt-BR", { day: "numeric", month: "short" });
+
+  return (
+    <div style={{ marginTop: 28 }}>
+      {loading && <div style={{ textAlign:"center", color:"var(--muted)", padding: 60 }}>Carregando...</div>}
+      {!loading && threads.length === 0 && (
+        <div style={{ textAlign:"center", color:"var(--muted)", padding: 60, fontSize: 14, lineHeight: 1.8 }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
+          Nenhuma mensagem de suporte ainda.
+        </div>
+      )}
+      {!loading && threads.length > 0 && (
+        <div style={{ display:"grid", gridTemplateColumns:"260px 1fr", gap: 16, minHeight: 500, alignItems:"stretch" }}>
+          {/* Conversation list */}
+          <div style={{ border:"1px solid var(--line)", borderRadius:"var(--radius-lg)", overflow:"hidden", background:"var(--surface)", display:"flex", flexDirection:"column" }}>
+            <div style={{ padding:"12px 16px", borderBottom:"1px solid var(--line)", fontSize: 11, fontWeight: 700, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".07em", flexShrink: 0 }}>
+              Conversas ({threads.length})
+            </div>
+            <div style={{ overflowY:"auto", flex: 1 }}>
+              {threads.map(t => {
+                const isSel = t.userId === selected;
+                return (
+                  <div
+                    key={t.userId}
+                    onClick={() => setSelected(t.userId)}
+                    style={{
+                      padding:"12px 16px", cursor:"pointer",
+                      borderBottom:"1px solid var(--line)",
+                      borderLeft: isSel ? "3px solid var(--primary)" : "3px solid transparent",
+                      background: isSel ? "color-mix(in oklab, var(--primary) 7%, var(--surface))" : "transparent",
+                      transition:"background .12s ease",
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {t.profile.name}
+                    </div>
+                    <div style={{ fontSize: 11, color:"var(--muted)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginBottom: 3 }}>
+                      {t.lastMsg.is_admin ? "Você: " : ""}{t.lastMsg.message}
+                    </div>
+                    <div style={{ fontSize: 10, color:"var(--muted)" }}>
+                      {fmtDate(t.lastMsg.created_at)} · {fmtTime(t.lastMsg.created_at)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Thread */}
+          <div style={{ border:"1px solid var(--line)", borderRadius:"var(--radius-lg)", display:"flex", flexDirection:"column", background:"var(--surface)", overflow:"hidden" }}>
+            {!selected ? (
+              <div style={{ margin:"auto", color:"var(--muted)", fontSize: 14, padding: 40, textAlign:"center" }}>
+                Selecione uma conversa
+              </div>
+            ) : (
+              <>
+                <div style={{ padding:"14px 20px", borderBottom:"1px solid var(--line)", display:"flex", alignItems:"center", gap: 12, flexShrink: 0 }}>
+                  <div style={{ width: 36, height: 36, borderRadius:"50%", background:"var(--primary)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink: 0 }}>
+                    <span style={{ color:"var(--primary-ink)", fontWeight: 700, fontSize: 15 }}>
+                      {(selProfile?.name || "?")[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{selProfile?.name}</div>
+                    <div style={{ fontSize: 12, color:"var(--muted)" }}>{selProfile?.email}</div>
+                  </div>
+                </div>
+
+                <div style={{ flex: 1, overflowY:"auto", padding:"16px 20px", display:"flex", flexDirection:"column", gap: 8, minHeight: 300, maxHeight: 440 }}>
+                  {thread.map(msg => {
+                    const isAdm = msg.is_admin;
+                    return (
+                      <div key={msg.id} style={{ display:"flex", flexDirection:"column", alignItems: isAdm ? "flex-end" : "flex-start" }}>
+                        {isAdm && <div style={{ fontSize: 9, fontWeight: 700, color:"var(--muted)", marginBottom: 3, paddingRight: 3, letterSpacing:".08em" }}>VOCÊ</div>}
+                        <div style={{
+                          maxWidth:"75%", padding:"9px 14px",
+                          borderRadius: isAdm ? "14px 4px 14px 14px" : "4px 14px 14px 14px",
+                          background: isAdm ? "var(--primary)" : "var(--bg)",
+                          color: isAdm ? "var(--primary-ink)" : "var(--fg)",
+                          border: isAdm ? "none" : "1px solid var(--line)",
+                          fontSize: 13, lineHeight: 1.5, wordBreak:"break-word",
+                        }}>
+                          {msg.message}
+                        </div>
+                        <div style={{ fontSize: 10, color:"var(--muted)", marginTop: 3 }}>{fmtTime(msg.created_at)}</div>
+                      </div>
+                    );
+                  })}
+                  <div ref={chatEndRef} />
+                </div>
+
+                <div style={{ padding:"12px 20px", borderTop:"1px solid var(--line)", flexShrink: 0 }}>
+                  <form onSubmit={sendReply} style={{ display:"flex", gap: 8 }}>
+                    <input className="input" value={replyText} onChange={e=>setReplyText(e.target.value)}
+                      placeholder="Responder…" style={{ flex: 1, fontSize: 13 }} />
+                    <button className="btn primary" type="submit" disabled={replyBusy || !replyText.trim()}
+                      style={{ opacity: replyBusy ? .7 : 1 }}>
+                      {replyBusy ? "…" : "Enviar"}
+                    </button>
+                  </form>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

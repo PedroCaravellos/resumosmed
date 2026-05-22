@@ -276,6 +276,41 @@ async function fetchPendingPaymentStatus(chargeId){
   return res?.data?.status || null;
 }
 
+// ─────────── Support Chat ───────────
+async function fetchSupportMessages(userId){
+  if (!userId) return [];
+  const res = await safe("fetchSupportMessages", () =>
+    sb.from("support_messages")
+      .select("id, user_id, message, is_admin, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true }),
+    { data: [], error: null }
+  );
+  return res?.data || [];
+}
+
+async function sendSupportMessage(userId, message, isAdmin = false){
+  const res = await safe("sendSupportMessage", () =>
+    sb.from("support_messages")
+      .insert({ user_id: userId, message, is_admin: isAdmin })
+      .select()
+      .single(),
+    { data: null, error: { message: "timeout" } }
+  );
+  if (res?.error) return { error: res.error.message };
+  return { message: res.data };
+}
+
+async function fetchAllSupportMessages(){
+  const res = await safe("fetchAllSupportMessages", () =>
+    sb.from("support_messages")
+      .select("id, user_id, message, is_admin, created_at")
+      .order("created_at", { ascending: true }),
+    { data: [], error: null }
+  );
+  return res?.data || [];
+}
+
 Object.assign(window, {
   fetchProducts, fetchProductById, createProduct, updateProduct, deleteProduct,
   fetchUserPurchaseIds, fetchUserPurchases, fetchAllSales, fetchUsersCount,
@@ -283,5 +318,6 @@ Object.assign(window, {
   normalizeProduct,
   logEvent, hasAcceptedTerms, acceptTerms,
   fetchUserActivity, fetchUserLogs, setUserBan,
+  fetchSupportMessages, sendSupportMessage, fetchAllSupportMessages,
   Q_TIMEOUT, queryWithTimeout, safe,
 });

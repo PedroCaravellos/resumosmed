@@ -17,9 +17,9 @@ async function loadProfileFor(authUser){
   if (!authUser) return null;
   // Wrap em safe() pra que falha de rede não pendure o login
   const res = await (window.safe ? window.safe("loadProfileFor", () =>
-    sb.from("profiles").select("id, name, email, role, banned, banned_reason").eq("id", authUser.id).single(),
+    sb.from("profiles").select("id, name, email, role, banned, banned_reason, avatar_url, created_at").eq("id", authUser.id).single(),
     { data: null, error: null }
-  ) : sb.from("profiles").select("id, name, email, role, banned, banned_reason").eq("id", authUser.id).single().catch(e=>({data:null, error:e})));
+  ) : sb.from("profiles").select("id, name, email, role, banned, banned_reason, avatar_url, created_at").eq("id", authUser.id).single().catch(e=>({data:null, error:e})));
 
   const profile = res?.data;
   const error = res?.error;
