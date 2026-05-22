@@ -24,3 +24,12 @@ build/
 
 # Logs
 *.log
+
+# Claude Code
+.claude/
+
+# Uploads locais
+uploads/
+
+# Supabase CLI temp
+supabase/.temp/

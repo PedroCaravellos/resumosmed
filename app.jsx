@@ -45,6 +45,7 @@ function App(){
     try {
       const qs = new URLSearchParams(window.location.search);
       if (qs.get("reset") === "1") return { name: "reset-password" };
+      if (qs.get("payment_return") === "1") return { name: "payment-return" };
     } catch {}
     return { name: "landing" };
   })();
@@ -155,6 +156,7 @@ function App(){
     case "admin-login": page = <AdminLogin go={go} onAuth={handleAuth}/>; break;
     case "admin":       page = <AdminDashboard go={go} currentUser={currentUser} onLogout={handleLogout}/>; break;
     case "library":     page = <MyLibrary go={go} currentUser={currentUser}/>; break;
+    case "payment-return": page = <PaymentReturn go={go} clearCart={clearCart} refreshUser={refreshUser} currentUser={currentUser} cart={cart}/>; break;
     case "reader":      page = <PdfReader id={route.id} go={go} currentUser={currentUser}/>; break;
     default:            page = <Landing go={go} addToCart={addToCart} heroCopy={t.hero}/>;
   }

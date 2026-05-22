@@ -267,10 +267,19 @@ async function setUserBan(targetId, banned, reason){
   return res?.error ? { error: res.error.message } : { ok: true };
 }
 
+async function fetchPendingPaymentStatus(chargeId){
+  if (!chargeId) return null;
+  const res = await safe("fetchPendingPaymentStatus", () => sb
+    .from("pending_payments").select("status").eq("id", chargeId).maybeSingle(),
+    { data: null, error: null }
+  );
+  return res?.data?.status || null;
+}
+
 Object.assign(window, {
   fetchProducts, fetchProductById, createProduct, updateProduct, deleteProduct,
   fetchUserPurchaseIds, fetchUserPurchases, fetchAllSales, fetchUsersCount,
-  createPurchases, getSignedPdfUrl,
+  createPurchases, getSignedPdfUrl, fetchPendingPaymentStatus,
   normalizeProduct,
   logEvent, hasAcceptedTerms, acceptTerms,
   fetchUserActivity, fetchUserLogs, setUserBan,

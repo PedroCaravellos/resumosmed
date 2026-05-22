@@ -929,47 +929,40 @@ function Icon({ name }){
 // ─────────────────────────────────────────────────────────
 //  CART PAGE
 // ─────────────────────────────────────────────────────────
+const maskCpf = (v) => v.replace(/\D/g,"").slice(0,11)
+  .replace(/(\d{3})(\d)/,"$1.$2")
+  .replace(/(\d{3})(\d)/,"$1.$2")
+  .replace(/(\d{3})(\d{1,2})$/,"$1-$2");
+
 function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser }){
   const [paying, setPaying] = useStateP(false);
-  const [success, setSuccess] = useStateP(false);
   const [errMsg, setErrMsg] = useStateP("");
+  const [cpf, setCpf] = useStateP("");
   const total = cart.reduce((s,r)=>s+r.price, 0);
-  const discount = Math.round(total*0.05);
-  const finalTotal = total - discount;
 
   const checkout = async () => {
-    if (!currentUser){
-      go({ name: "login" });
-      return;
-    }
+    if (!currentUser){ go({ name:"login" }); return; }
+    const rawCpf = cpf.replace(/\D/g,"");
+    if (rawCpf.length !== 11){ setErrMsg("Informe um CPF válido para continuar."); return; }
     setPaying(true);
     setErrMsg("");
-    // simula latência do gateway
-    await new Promise(r => setTimeout(r, 800));
-    const result = await recordPurchase(currentUser, cart);
-    if (result?.error){
+    try {
+      const completionUrl = window.location.origin + "?payment_return=1";
+      const { data, error } = await sb.functions.invoke("create-mp-preference", {
+        body: { items: cart, cpf: rawCpf, name: currentUser.name, email: currentUser.email, completionUrl },
+      });
+      if (error || !data?.checkoutUrl){
+        setErrMsg("Não foi possível criar o checkout: " + (data?.error || error?.message || "tente novamente"));
+        return;
+      }
+      sessionStorage.setItem("pending_payment", data.chargeId);
+      window.location.href = data.checkoutUrl;
+    } catch(e) {
+      setErrMsg("Erro ao conectar com o servidor de pagamentos.");
+    } finally {
       setPaying(false);
-      setErrMsg("Erro ao registrar compra: " + result.error);
-      return;
     }
-    await refreshUser?.();
-    setPaying(false);
-    setSuccess(true);
-    setTimeout(()=>{
-      clearCart();
-      go({ name:"library" });
-    }, 1500);
   };
-
-  if (success){
-    return (
-      <div className="pagewrap page" style={{paddingTop: 60, paddingBottom: "var(--gap-xl)", textAlign:"center"}}>
-        <div style={{width: 96, height: 96, margin:"0 auto 20px", borderRadius: 999, background:"var(--acc-2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize: 48, animation:"pageIn .4s cubic-bezier(.2,.7,.1,1)"}}>✓</div>
-        <h1 className="display" style={{fontSize:"clamp(36px, 5vw, 56px)", margin: 0, fontWeight: 700}}>Pagamento confirmado!</h1>
-        <p style={{color:"var(--muted)", marginTop: 12, fontSize: 16}}>Já liberei seus resumos. Te levando pra biblioteca...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="pagewrap page" style={{paddingTop: 40, paddingBottom: "var(--gap-xl)"}}>
@@ -1008,17 +1001,28 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
 
           <div className="card" style={{padding: 24, height:"fit-content", position:"sticky", top: 96}}>
             <div className="display" style={{fontSize: 18, fontWeight: 700, marginBottom: 14}}>Resumo</div>
-            <div className="row between" style={{fontSize: 14, color:"var(--muted)", marginBottom: 8}}><span>Subtotal</span><span className="mono">R$ {total},00</span></div>
-            <div className="row between" style={{fontSize: 14, color:"var(--muted)", marginBottom: 8}}><span>Desconto pix</span><span className="mono" style={{color:"var(--acc-2)"}}>-R$ {discount},00</span></div>
             <div style={{borderTop:"1px solid var(--line)", margin:"14px 0"}}/>
             <div className="row between" style={{marginBottom: 18}}>
               <span style={{fontWeight: 700}}>Total</span>
-              <span className="display" style={{fontSize: 28, fontWeight: 700}}>R$ {finalTotal}</span>
+              <span className="display" style={{fontSize: 28, fontWeight: 700}}>R$ {total}</span>
             </div>
 
             {!currentUser && (
               <div style={{padding: 12, background:"var(--bg)", borderRadius: 10, border:"1px dashed var(--line-strong)", fontSize: 12.5, color:"var(--muted)", marginBottom: 12, lineHeight: 1.5}}>
                 Pra finalizar, você precisa <a onClick={()=>go({name:"login"})} style={{color:"var(--primary)", cursor:"pointer", fontWeight: 600}}>entrar</a> ou <a onClick={()=>go({name:"signup"})} style={{color:"var(--primary)", cursor:"pointer", fontWeight: 600}}>criar uma conta</a>.
+              </div>
+            )}
+
+            {currentUser && (
+              <div style={{marginBottom: 12}}>
+                <div style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", marginBottom: 6, textTransform:"uppercase", letterSpacing:".06em"}}>CPF do pagador</div>
+                <input
+                  value={cpf}
+                  onChange={e=>setCpf(maskCpf(e.target.value))}
+                  placeholder="000.000.000-00"
+                  inputMode="numeric"
+                  style={{width:"100%", padding:"11px 13px", borderRadius: 10, border:"1px solid var(--line-strong)", background:"var(--bg)", color:"var(--fg)", fontFamily:"var(--font-mono)", fontSize: 15, outline:"none", boxSizing:"border-box"}}
+                />
               </div>
             )}
 
@@ -1029,11 +1033,110 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
             )}
 
             <button className="btn primary lg" style={{width:"100%", justifyContent:"center"}} onClick={checkout} disabled={paying}>
-              {paying ? "Processando pagamento..." : currentUser ? "Finalizar com Pix →" : "Entrar e finalizar →"}
+              {paying ? "Redirecionando…" : currentUser ? "Finalizar pagamento →" : "Entrar e finalizar →"}
             </button>
             <div style={{fontSize: 12, color:"var(--muted)", marginTop: 12, textAlign:"center"}}>Resumos liberados na sua biblioteca na hora.</div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+//  PAYMENT RETURN (volta do checkout hospedado)
+// ─────────────────────────────────────────────────────────
+function PaymentReturn({ go, clearCart, refreshUser, currentUser, cart }){
+  const [status, setStatus] = useStateP("checking");
+  const intervalRef = React.useRef(null);
+
+  const startPolling = React.useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    setStatus("checking");
+
+    const qs = new URLSearchParams(window.location.search);
+    const chargeId = sessionStorage.getItem("pending_payment") || qs.get("external_reference");
+
+    const handleSuccess = async () => {
+      sessionStorage.removeItem("pending_payment");
+      await refreshUser?.();
+      clearCart();
+      setStatus("success");
+      setTimeout(() => go({ name:"library" }), 2000);
+    };
+
+    const checkPurchasesFallback = async () => {
+      try {
+        const { data: { user } } = await sb.auth.getUser();
+        if (!user?.id) return false;
+        const ids = await fetchUserPurchaseIds(user.id);
+        const cartItems = JSON.parse(localStorage.getItem("resumosmed_cart") || "[]");
+        return cartItems.length > 0 && cartItems.some(item => ids.includes(item.id));
+      } catch { return false; }
+    };
+
+    if (!chargeId){
+      checkPurchasesFallback().then(found => {
+        if (found) handleSuccess();
+        else setStatus("error");
+      });
+      return;
+    }
+
+    let attempts = 0;
+    intervalRef.current = setInterval(async () => {
+      attempts++;
+      try {
+        const s = await fetchPendingPaymentStatus(chargeId);
+        if (s === "completed"){
+          clearInterval(intervalRef.current);
+          handleSuccess();
+        } else if (s === "expired"){
+          clearInterval(intervalRef.current);
+          setStatus("error");
+        } else if (attempts >= 30){
+          clearInterval(intervalRef.current);
+          const found = await checkPurchasesFallback();
+          if (found) handleSuccess();
+          else setStatus("error");
+        }
+      } catch { /* rede instável, continua */ }
+    }, 2000);
+  }, [go, clearCart, refreshUser]);
+
+  useEffectP(() => {
+    window.history.replaceState({}, "", window.location.pathname);
+    startPolling();
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, []);
+
+  return (
+    <div className="pagewrap page" style={{paddingTop: 80, textAlign:"center"}}>
+      {status === "checking" && (
+        <>
+          <div style={{fontSize: 48, marginBottom: 16}}>⏳</div>
+          <div className="display" style={{fontSize: 24, fontWeight: 700}}>Verificando pagamento…</div>
+          <p style={{color:"var(--muted)", marginTop: 8}}>Aguarde enquanto confirmamos sua compra. Isso pode levar alguns segundos.</p>
+        </>
+      )}
+      {status === "success" && (
+        <>
+          <div style={{fontSize: 48, marginBottom: 16}}>🎉</div>
+          <div className="display" style={{fontSize: 24, fontWeight: 700}}>Pagamento confirmado!</div>
+          <p style={{color:"var(--muted)", marginTop: 8}}>Redirecionando para sua biblioteca…</p>
+        </>
+      )}
+      {status === "error" && (
+        <>
+          <div style={{fontSize: 48, marginBottom: 16}}>⚠️</div>
+          <div className="display" style={{fontSize: 24, fontWeight: 700}}>Não conseguimos confirmar ainda</div>
+          <p style={{color:"var(--muted)", marginTop: 8, marginBottom: 24}}>O pagamento pode estar sendo processado. Verifique sua biblioteca em alguns minutos ou tente verificar novamente.</p>
+          <div style={{display:"flex", gap: 12, justifyContent:"center", flexWrap:"wrap"}}>
+            <button className="btn primary" onClick={()=>go({name:"library"})}>Ir para minha biblioteca</button>
+            <button className="btn secondary" onClick={startPolling}>Verificar novamente</button>
+            <button className="btn secondary" onClick={()=>go({name:"cart"})}>Voltar ao carrinho</button>
+          </div>
+        </>
       )}
     </div>
   );
