@@ -1024,6 +1024,16 @@ function AdminTicketCard({ ticket, currentUser, onResolved, onDeleted }){
   const [resolving, setResolving] = useStateAdmin(false);
   const [deleting, setDeleting] = useStateAdmin(false);
 
+  // Realtime: respostas do usuário em tempo real (ativo só quando expandido)
+  useEffectAdmin(() => {
+    if (!open || !loaded) return;
+    const ch = sb.channel("tr-admin-" + ticket.id)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "ticket_replies", filter: `ticket_id=eq.${ticket.id}` },
+        p => setReplies(prev => prev.some(r => r.id === p.new.id) ? prev : [...prev, p.new]))
+      .subscribe();
+    return () => sb.removeChannel(ch);
+  }, [open, loaded]);
+
   const toggle = async () => {
     if (!open && !loaded) {
       const r = await fetchTicketReplies(ticket.id);
@@ -1048,7 +1058,11 @@ function AdminTicketCard({ ticket, currentUser, onResolved, onDeleted }){
     e.stopPropagation();
     setResolving(true);
     const { error } = await resolveTicket(ticket.id);
-    if (!error) onResolved(ticket.id);
+    if (error) {
+      alert("Erro ao marcar como resolvida: " + error);
+    } else {
+      onResolved(ticket.id);
+    }
     setResolving(false);
   };
 

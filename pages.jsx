@@ -1426,6 +1426,26 @@ function TicketThread({ ticket, currentUser }){
   const [loaded, setLoaded] = useStateP(false);
   const [replyText, setReplyText] = useStateP("");
   const [replyBusy, setReplyBusy] = useStateP(false);
+  const [localStatus, setLocalStatus] = useStateP(ticket.status);
+
+  // Realtime: novas respostas do admin (ativo só quando expandido)
+  useEffectP(() => {
+    if (!open || !loaded) return;
+    const ch = sb.channel("tr-" + ticket.id)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "ticket_replies", filter: `ticket_id=eq.${ticket.id}` },
+        p => setReplies(prev => prev.some(r => r.id === p.new.id) ? prev : [...prev, p.new]))
+      .subscribe();
+    return () => sb.removeChannel(ch);
+  }, [open, loaded]);
+
+  // Realtime: mudança de status (ticket marcado como resolvido)
+  useEffectP(() => {
+    const ch = sb.channel("ts-" + ticket.id)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "support_tickets", filter: `id=eq.${ticket.id}` },
+        p => { if (p.new?.status) setLocalStatus(p.new.status); })
+      .subscribe();
+    return () => sb.removeChannel(ch);
+  }, []);
 
   const toggle = async () => {
     if (!open && !loaded) {
@@ -1447,7 +1467,7 @@ function TicketThread({ ticket, currentUser }){
     setReplyBusy(false);
   };
 
-  const isOpen = ticket.status === "open";
+  const isOpen = localStatus === "open";
   const subj = TICKET_SUBJ[ticket.subject] || ticket.subject;
 
   return (
