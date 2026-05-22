@@ -1007,190 +1007,121 @@ function UserLogsModal({ user, onClose }){
 }
 
 // ─────────── Support ───────────
+const TICKET_SUBJECT = {
+  duvida: "Dúvida sobre conteúdo",
+  problema: "Problema técnico",
+  pagamento: "Pagamento",
+  acesso: "Acesso ao resumo",
+  outro: "Outro",
+};
+
 function AdminSupport(){
-  const [allMsgs, setAllMsgs] = useStateAdmin([]);
-  const [profiles, setProfiles] = useStateAdmin({});
-  const [selected, setSelected] = useStateAdmin(null);
-  const [replyText, setReplyText] = useStateAdmin("");
-  const [replyBusy, setReplyBusy] = useStateAdmin(false);
+  const [tickets, setTickets] = useStateAdmin([]);
   const [loading, setLoading] = useStateAdmin(true);
-  const chatEndRef = useRefAdmin(null);
+  const [filter, setFilter] = useStateAdmin("open");
+  const [expanded, setExpanded] = useStateAdmin(null);
+  const [resolving, setResolving] = useStateAdmin(null);
 
   useEffectAdmin(() => {
     let mounted = true;
-    fetchAllSupportMessages().then(async msgs => {
-      if (!mounted) return;
-      setAllMsgs(msgs);
-      setLoading(false);
-      const userIds = [...new Set(msgs.map(m => m.user_id))];
-      if (userIds.length) {
-        const { data: profs } = await sb.from("profiles").select("id, name, email").in("id", userIds);
-        if (mounted && profs) setProfiles(Object.fromEntries(profs.map(p => [p.id, p])));
-      }
-    });
-    const ch = sb.channel("admin-support-all")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages" }, payload => {
-        if (!mounted) return;
-        setAllMsgs(prev => [...prev, payload.new]);
-        const uid = payload.new.user_id;
-        setProfiles(prev => {
-          if (prev[uid]) return prev;
-          sb.from("profiles").select("id, name, email").eq("id", uid).maybeSingle().then(({ data: p }) => {
-            if (p && mounted) setProfiles(pr => ({ ...pr, [uid]: p }));
-          });
-          return prev;
-        });
-      })
-      .subscribe();
-    return () => { mounted = false; sb.removeChannel(ch); };
+    fetchAllTickets().then(t => { if (mounted){ setTickets(t); setLoading(false); } });
+    return () => { mounted = false; };
   }, []);
 
-  useEffectAdmin(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [allMsgs.length, selected]);
+  const openCount = useMemoAdmin(() => tickets.filter(t => t.status === "open").length, [tickets]);
 
-  const threads = useMemoAdmin(() => {
-    const byUser = {};
-    for (const m of allMsgs) {
-      if (!byUser[m.user_id]) byUser[m.user_id] = [];
-      byUser[m.user_id].push(m);
-    }
-    return Object.entries(byUser).map(([uid, msgs]) => ({
-      userId: uid,
-      profile: profiles[uid] || { name: uid.slice(0, 8) + "…", email: "" },
-      msgs,
-      lastMsg: msgs[msgs.length - 1],
-    })).sort((a, b) => new Date(b.lastMsg.created_at) - new Date(a.lastMsg.created_at));
-  }, [allMsgs, profiles]);
-
-  const thread = useMemoAdmin(() =>
-    selected ? (threads.find(t => t.userId === selected)?.msgs || []) : [],
-    [threads, selected]
+  const filtered = useMemoAdmin(() =>
+    filter === "all" ? tickets : tickets.filter(t => t.status === filter),
+    [tickets, filter]
   );
-  const selProfile = threads.find(t => t.userId === selected)?.profile;
 
-  const sendReply = async (e) => {
-    e.preventDefault();
-    const text = replyText.trim();
-    if (!text || !selected || replyBusy) return;
-    setReplyBusy(true);
-    setReplyText("");
-    const optimisticId = "opt-" + Date.now();
-    setAllMsgs(prev => [...prev, { id: optimisticId, user_id: selected, message: text, is_admin: true, created_at: new Date().toISOString() }]);
-    const { error } = await sendSupportMessage(selected, text, true);
-    if (error) {
-      setAllMsgs(prev => prev.filter(m => m.id !== optimisticId));
-      setReplyText(text);
-      alert("Erro ao enviar: " + error);
-    }
-    setReplyBusy(false);
+  const markResolved = async (id, e) => {
+    e.stopPropagation();
+    setResolving(id);
+    const { error } = await resolveTicket(id);
+    if (!error) setTickets(prev => prev.map(t => t.id === id ? { ...t, status: "resolved" } : t));
+    setResolving(null);
   };
 
-  const fmtTime = (d) => new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  const fmtDate = (d) => new Date(d).toLocaleDateString("pt-BR", { day: "numeric", month: "short" });
+  const fmt = (d) => new Date(d).toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" }) +
+    " · " + new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
   return (
     <div style={{ marginTop: 28 }}>
+      {/* Filter bar */}
+      <div style={{ display:"flex", gap: 8, marginBottom: 20 }}>
+        {[["open", `Abertas (${openCount})`], ["resolved", "Resolvidas"], ["all", "Todas"]].map(([v, l]) => (
+          <button key={v} className={filter === v ? "btn primary" : "btn"}
+            onClick={() => setFilter(v)} style={{ fontSize: 13 }}>
+            {l}
+          </button>
+        ))}
+      </div>
+
       {loading && <div style={{ textAlign:"center", color:"var(--muted)", padding: 60 }}>Carregando...</div>}
-      {!loading && threads.length === 0 && (
+
+      {!loading && filtered.length === 0 && (
         <div style={{ textAlign:"center", color:"var(--muted)", padding: 60, fontSize: 14, lineHeight: 1.8 }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
-          Nenhuma mensagem de suporte ainda.
+          <div style={{ fontSize: 32, marginBottom: 8 }}>✓</div>
+          {filter === "open" ? "Nenhuma solicitação aberta." : filter === "resolved" ? "Nenhuma solicitação resolvida." : "Nenhuma solicitação ainda."}
         </div>
       )}
-      {!loading && threads.length > 0 && (
-        <div style={{ display:"grid", gridTemplateColumns:"260px 1fr", gap: 16, minHeight: 500, alignItems:"stretch" }}>
-          {/* Conversation list */}
-          <div style={{ border:"1px solid var(--line)", borderRadius:"var(--radius-lg)", overflow:"hidden", background:"var(--surface)", display:"flex", flexDirection:"column" }}>
-            <div style={{ padding:"12px 16px", borderBottom:"1px solid var(--line)", fontSize: 11, fontWeight: 700, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".07em", flexShrink: 0 }}>
-              Conversas ({threads.length})
-            </div>
-            <div style={{ overflowY:"auto", flex: 1 }}>
-              {threads.map(t => {
-                const isSel = t.userId === selected;
-                return (
-                  <div
-                    key={t.userId}
-                    onClick={() => setSelected(t.userId)}
-                    style={{
-                      padding:"12px 16px", cursor:"pointer",
-                      borderBottom:"1px solid var(--line)",
-                      borderLeft: isSel ? "3px solid var(--primary)" : "3px solid transparent",
-                      background: isSel ? "color-mix(in oklab, var(--primary) 7%, var(--surface))" : "transparent",
-                      transition:"background .12s ease",
-                    }}
-                  >
-                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                      {t.profile.name}
-                    </div>
-                    <div style={{ fontSize: 11, color:"var(--muted)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginBottom: 3 }}>
-                      {t.lastMsg.is_admin ? "Você: " : ""}{t.lastMsg.message}
-                    </div>
-                    <div style={{ fontSize: 10, color:"var(--muted)" }}>
-                      {fmtDate(t.lastMsg.created_at)} · {fmtTime(t.lastMsg.created_at)}
+
+      {!loading && filtered.length > 0 && (
+        <div style={{ display:"flex", flexDirection:"column", gap: 8 }}>
+          {filtered.map(t => {
+            const isOpen = t.status === "open";
+            const isExp = expanded === t.id;
+            const subj = TICKET_SUBJECT[t.subject] || t.subject;
+            return (
+              <div key={t.id} style={{ border:"1px solid var(--line)", borderRadius:"var(--radius-lg)", background:"var(--surface)", overflow:"hidden" }}>
+                {/* Header row */}
+                <div
+                  onClick={() => setExpanded(isExp ? null : t.id)}
+                  style={{ padding:"16px 20px", display:"flex", alignItems:"center", gap: 14, cursor:"pointer" }}
+                >
+                  {/* Status badge */}
+                  <span style={{
+                    flexShrink: 0, fontSize: 11, fontWeight: 700, padding:"3px 9px", borderRadius: 999,
+                    background: isOpen ? "color-mix(in oklab, var(--acc-1) 18%, transparent)" : "color-mix(in oklab, var(--acc-2) 18%, transparent)",
+                    color: isOpen ? "#a07800" : "var(--acc-2)",
+                  }}>
+                    {isOpen ? "Aberta" : "Resolvida"}
+                  </span>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 3 }}>{subj}</div>
+                    <div style={{ fontSize: 12, color:"var(--muted)", display:"flex", gap: 10, flexWrap:"wrap" }}>
+                      <span>{t.email}</span>
+                      <span>·</span>
+                      <span>{fmt(t.created_at)}</span>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* Thread */}
-          <div style={{ border:"1px solid var(--line)", borderRadius:"var(--radius-lg)", display:"flex", flexDirection:"column", background:"var(--surface)", overflow:"hidden" }}>
-            {!selected ? (
-              <div style={{ margin:"auto", color:"var(--muted)", fontSize: 14, padding: 40, textAlign:"center" }}>
-                Selecione uma conversa
-              </div>
-            ) : (
-              <>
-                <div style={{ padding:"14px 20px", borderBottom:"1px solid var(--line)", display:"flex", alignItems:"center", gap: 12, flexShrink: 0 }}>
-                  <div style={{ width: 36, height: 36, borderRadius:"50%", background:"var(--primary)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink: 0 }}>
-                    <span style={{ color:"var(--primary-ink)", fontWeight: 700, fontSize: 15 }}>
-                      {(selProfile?.name || "?")[0].toUpperCase()}
-                    </span>
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{selProfile?.name}</div>
-                    <div style={{ fontSize: 12, color:"var(--muted)" }}>{selProfile?.email}</div>
-                  </div>
-                </div>
-
-                <div style={{ flex: 1, overflowY:"auto", padding:"16px 20px", display:"flex", flexDirection:"column", gap: 8, minHeight: 300, maxHeight: 440 }}>
-                  {thread.map(msg => {
-                    const isAdm = msg.is_admin;
-                    return (
-                      <div key={msg.id} style={{ display:"flex", flexDirection:"column", alignItems: isAdm ? "flex-end" : "flex-start" }}>
-                        {isAdm && <div style={{ fontSize: 9, fontWeight: 700, color:"var(--muted)", marginBottom: 3, paddingRight: 3, letterSpacing:".08em" }}>VOCÊ</div>}
-                        <div style={{
-                          maxWidth:"75%", padding:"9px 14px",
-                          borderRadius: isAdm ? "14px 4px 14px 14px" : "4px 14px 14px 14px",
-                          background: isAdm ? "var(--primary)" : "var(--bg)",
-                          color: isAdm ? "var(--primary-ink)" : "var(--fg)",
-                          border: isAdm ? "none" : "1px solid var(--line)",
-                          fontSize: 13, lineHeight: 1.5, wordBreak:"break-word",
-                        }}>
-                          {msg.message}
-                        </div>
-                        <div style={{ fontSize: 10, color:"var(--muted)", marginTop: 3 }}>{fmtTime(msg.created_at)}</div>
-                      </div>
-                    );
-                  })}
-                  <div ref={chatEndRef} />
-                </div>
-
-                <div style={{ padding:"12px 20px", borderTop:"1px solid var(--line)", flexShrink: 0 }}>
-                  <form onSubmit={sendReply} style={{ display:"flex", gap: 8 }}>
-                    <input className="input" value={replyText} onChange={e=>setReplyText(e.target.value)}
-                      placeholder="Responder…" style={{ flex: 1, fontSize: 13 }} />
-                    <button className="btn primary" type="submit" disabled={replyBusy || !replyText.trim()}
-                      style={{ opacity: replyBusy ? .7 : 1 }}>
-                      {replyBusy ? "…" : "Enviar"}
+                  {isOpen && (
+                    <button className="btn" style={{ fontSize: 12, flexShrink: 0 }}
+                      disabled={resolving === t.id}
+                      onClick={(e) => markResolved(t.id, e)}>
+                      {resolving === t.id ? "…" : "Marcar resolvida"}
                     </button>
-                  </form>
+                  )}
+
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.2" strokeLinecap="round" style={{ flexShrink: 0, transition:"transform .2s", transform: isExp ? "rotate(180deg)" : "rotate(0deg)" }}>
+                    <path d="M6 9l6 6 6-6"/>
+                  </svg>
                 </div>
-              </>
-            )}
-          </div>
+
+                {/* Expanded message */}
+                {isExp && (
+                  <div style={{ padding:"0 20px 20px", borderTop:"1px solid var(--line)" }}>
+                    <div style={{ paddingTop: 16, fontSize: 14, lineHeight: 1.8, color:"var(--fg)", whiteSpace:"pre-wrap" }}>
+                      {t.message}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

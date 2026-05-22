@@ -276,39 +276,50 @@ async function fetchPendingPaymentStatus(chargeId){
   return res?.data?.status || null;
 }
 
-// ─────────── Support Chat ───────────
-async function fetchSupportMessages(userId){
+// ─────────── Support Tickets ───────────
+async function fetchUserTickets(userId){
   if (!userId) return [];
-  const res = await safe("fetchSupportMessages", () =>
-    sb.from("support_messages")
-      .select("id, user_id, message, is_admin, created_at")
+  const res = await safe("fetchUserTickets", () =>
+    sb.from("support_tickets")
+      .select("id, subject, message, status, created_at")
       .eq("user_id", userId)
-      .order("created_at", { ascending: true }),
+      .order("created_at", { ascending: false }),
     { data: [], error: null }
   );
   return res?.data || [];
 }
 
-async function sendSupportMessage(userId, message, isAdmin = false){
-  const res = await safe("sendSupportMessage", () =>
-    sb.from("support_messages")
-      .insert({ user_id: userId, message, is_admin: isAdmin })
+async function submitSupportTicket(userId, email, subject, message){
+  const res = await safe("submitSupportTicket", () =>
+    sb.from("support_tickets")
+      .insert({ user_id: userId, email, subject, message, status: "open" })
       .select()
       .single(),
     { data: null, error: { message: "timeout" } }
   );
   if (res?.error) return { error: res.error.message };
-  return { message: res.data };
+  return { ticket: res.data };
 }
 
-async function fetchAllSupportMessages(){
-  const res = await safe("fetchAllSupportMessages", () =>
-    sb.from("support_messages")
-      .select("id, user_id, message, is_admin, created_at")
-      .order("created_at", { ascending: true }),
+async function fetchAllTickets(){
+  const res = await safe("fetchAllTickets", () =>
+    sb.from("support_tickets")
+      .select("id, user_id, email, subject, message, status, created_at")
+      .order("created_at", { ascending: false }),
     { data: [], error: null }
   );
   return res?.data || [];
+}
+
+async function resolveTicket(id){
+  const res = await safe("resolveTicket", () =>
+    sb.from("support_tickets")
+      .update({ status: "resolved" })
+      .eq("id", id),
+    { error: { message: "timeout" } }
+  );
+  if (res?.error) return { error: res.error.message };
+  return { ok: true };
 }
 
 Object.assign(window, {
@@ -318,6 +329,6 @@ Object.assign(window, {
   normalizeProduct,
   logEvent, hasAcceptedTerms, acceptTerms,
   fetchUserActivity, fetchUserLogs, setUserBan,
-  fetchSupportMessages, sendSupportMessage, fetchAllSupportMessages,
+  fetchUserTickets, submitSupportTicket, fetchAllTickets, resolveTicket,
   Q_TIMEOUT, queryWithTimeout, safe,
 });

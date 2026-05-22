@@ -1160,28 +1160,17 @@ function AccountSettings({ go, currentUser, refreshUser }){
   const [passMsg, setPassMsg] = useStateP(null);
   const [passBusy, setPassBusy] = useStateP(false);
 
-  const [messages, setMessages] = useStateP([]);
-  const [msgText, setMsgText] = useStateP("");
-  const [sendBusy, setSendBusy] = useStateP(false);
-  const [chatLoading, setChatLoading] = useStateP(true);
-  const chatEndRef = useRefP(null);
+  const [tickets, setTickets] = useStateP([]);
+  const [ticketSubject, setTicketSubject] = useStateP("duvida");
+  const [ticketMsg, setTicketMsg] = useStateP("");
+  const [ticketBusy, setTicketBusy] = useStateP(false);
+  const [ticketSent, setTicketSent] = useStateP(false);
+  const [ticketErr, setTicketErr] = useStateP(null);
 
   useEffectP(() => {
-    if (!currentUser?.id) { setChatLoading(false); return; }
-    let mounted = true;
-    fetchSupportMessages(currentUser.id).then(msgs => {
-      if (mounted) { setMessages(msgs); setChatLoading(false); }
-    });
-    const ch = sb.channel("support-" + currentUser.id)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "support_messages", filter: `user_id=eq.${currentUser.id}` },
-        payload => { if (mounted) setMessages(prev => [...prev, payload.new]); })
-      .subscribe();
-    return () => { mounted = false; sb.removeChannel(ch); };
+    if (!currentUser?.id) return;
+    fetchUserTickets(currentUser.id).then(setTickets);
   }, [currentUser?.id]);
-
-  useEffectP(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
 
   if (!currentUser) { go({ name: "login" }); return null; }
 
@@ -1245,20 +1234,20 @@ function AccountSettings({ go, currentUser, refreshUser }){
     }
   };
 
-  const sendMessage = async (e) => {
+  const sendTicket = async (e) => {
     e.preventDefault();
-    const text = msgText.trim();
-    if (!text || sendBusy) return;
-    setSendBusy(true);
-    const optimisticId = "opt-" + Date.now();
-    setMsgText("");
-    setMessages(prev => [...prev, { id: optimisticId, user_id: currentUser.id, message: text, is_admin: false, created_at: new Date().toISOString() }]);
-    const { error } = await sendSupportMessage(currentUser.id, text, false);
+    const text = ticketMsg.trim();
+    if (!text || ticketBusy) return;
+    setTicketBusy(true); setTicketErr(null);
+    const { ticket, error } = await submitSupportTicket(currentUser.id, currentUser.email, ticketSubject, text);
     if (error) {
-      setMessages(prev => prev.filter(m => m.id !== optimisticId));
-      setMsgText(text);
+      setTicketErr("Erro ao enviar: " + error);
+    } else {
+      setTickets(prev => [ticket, ...prev]);
+      setTicketMsg("");
+      setTicketSent(true);
     }
-    setSendBusy(false);
+    setTicketBusy(false);
   };
 
   // ── derived ──
@@ -1373,58 +1362,74 @@ function AccountSettings({ go, currentUser, refreshUser }){
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
           Suporte
         </div>
-        <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16, lineHeight: 1.6 }}>
-          Dúvida, problema ou sugestão? Nos chame aqui — respondemos em breve.
-        </div>
 
-        {/* Chat window */}
-        <div style={{
-          border: "1px solid var(--line)", borderRadius: 12,
-          height: 320, overflowY: "auto",
-          padding: "14px 12px", marginBottom: 10,
-          display: "flex", flexDirection: "column", gap: 10,
-          background: "var(--bg)",
-        }}>
-          {chatLoading && (
-            <div style={{ margin: "auto", color: "var(--muted)", fontSize: 13 }}>Carregando...</div>
-          )}
-          {!chatLoading && messages.length === 0 && (
-            <div style={{ margin: "auto", textAlign: "center", color: "var(--muted)", fontSize: 14, lineHeight: 1.7 }}>
-              <div style={{ fontSize: 30, marginBottom: 8 }}>👋</div>
-              Tem alguma dúvida ou problema?<br/>Escreve aqui que a gente responde rápido.
+        {ticketSent ? (
+          <div style={{ textAlign: "center", padding: "20px 0 8px" }}>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>✓</div>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Solicitação enviada!</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 20 }}>
+              Entraremos em contato pelo email <strong>{currentUser.email}</strong>
             </div>
-          )}
-          {messages.map((msg) => {
-            const isAdm = msg.is_admin;
-            const time = new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-            return (
-              <div key={msg.id} style={{ display: "flex", flexDirection: "column", alignItems: isAdm ? "flex-start" : "flex-end" }}>
-                {isAdm && <div style={{ fontSize: 9, fontWeight: 700, color: "var(--primary)", letterSpacing: ".1em", marginBottom: 3, paddingLeft: 4 }}>SUPORTE</div>}
-                <div style={{
-                  maxWidth: "76%", padding: "9px 14px",
-                  borderRadius: isAdm ? "4px 14px 14px 14px" : "14px 4px 14px 14px",
-                  background: isAdm ? "var(--surface)" : "var(--primary)",
-                  color: isAdm ? "var(--fg)" : "var(--primary-ink)",
-                  border: isAdm ? "1px solid var(--line)" : "none",
-                  fontSize: 14, lineHeight: 1.5, wordBreak: "break-word",
-                }}>
-                  {msg.message}
-                </div>
-                <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 3, paddingLeft: 2, paddingRight: 2 }}>{time}</div>
-              </div>
-            );
-          })}
-          <div ref={chatEndRef} />
-        </div>
+            <button className="btn" onClick={() => setTicketSent(false)}>Nova solicitação</button>
+          </div>
+        ) : (
+          <form onSubmit={sendTicket}>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 18, lineHeight: 1.6 }}>
+              Dúvida, problema ou sugestão? Preencha abaixo e entraremos em contato pelo seu email.
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={S.lbl}>Assunto</label>
+              <select className="input" value={ticketSubject} onChange={e => setTicketSubject(e.target.value)} style={{ width: "100%" }}>
+                <option value="duvida">Dúvida sobre o conteúdo</option>
+                <option value="problema">Problema técnico</option>
+                <option value="pagamento">Pagamento</option>
+                <option value="acesso">Acesso ao resumo</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+            <div>
+              <label style={S.lbl}>Mensagem</label>
+              <textarea className="input" value={ticketMsg} onChange={e => setTicketMsg(e.target.value)}
+                placeholder="Descreva o seu problema ou dúvida..."
+                style={{ width: "100%", minHeight: 110, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }}
+              />
+            </div>
+            {ticketErr && <div style={S.msg(false)}>{ticketErr}</div>}
+            <button className="btn primary" type="submit" disabled={ticketBusy || !ticketMsg.trim()}
+              style={{ marginTop: 16, opacity: ticketBusy ? .7 : 1 }}>
+              {ticketBusy ? "Enviando…" : "Enviar solicitação"}
+            </button>
+          </form>
+        )}
 
-        <form onSubmit={sendMessage} style={{ display: "flex", gap: 8 }}>
-          <input className="input" value={msgText} onChange={e => setMsgText(e.target.value)}
-            placeholder="Digite sua mensagem..." style={{ flex: 1 }} />
-          <button className="btn primary" type="submit" disabled={sendBusy || !msgText.trim()}
-            style={{ opacity: sendBusy ? .7 : 1, padding: "0 20px", whiteSpace: "nowrap" }}>
-            Enviar
-          </button>
-        </form>
+        {tickets.length > 0 && (
+          <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--line)" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 12 }}>
+              Suas solicitações
+            </div>
+            {tickets.map(t => {
+              const subjectLabel = { duvida: "Dúvida sobre conteúdo", problema: "Problema técnico", pagamento: "Pagamento", acesso: "Acesso ao resumo", outro: "Outro" }[t.subject] || t.subject;
+              const isOpen = t.status === "open";
+              return (
+                <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3 }}>{subjectLabel}</div>
+                    <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                      {new Date(t.created_at).toLocaleDateString("pt-BR")} · {t.message.slice(0, 70)}{t.message.length > 70 ? "…" : ""}
+                    </div>
+                  </div>
+                  <span style={{
+                    flexShrink: 0, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 999,
+                    background: isOpen ? "color-mix(in oklab, var(--acc-1) 18%, transparent)" : "color-mix(in oklab, var(--acc-2) 18%, transparent)",
+                    color: isOpen ? "#a07800" : "var(--acc-2)",
+                  }}>
+                    {isOpen ? "Aberta" : "Resolvida"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
