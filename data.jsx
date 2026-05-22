@@ -322,6 +322,39 @@ async function resolveTicket(id){
   return { ok: true };
 }
 
+async function deleteTicket(id){
+  const res = await safe("deleteTicket", () =>
+    sb.from("support_tickets").delete().eq("id", id),
+    { error: { message: "timeout" } }
+  );
+  if (res?.error) return { error: res.error.message };
+  return { ok: true };
+}
+
+async function fetchTicketReplies(ticketId){
+  if (!ticketId) return [];
+  const res = await safe("fetchTicketReplies", () =>
+    sb.from("ticket_replies")
+      .select("id, ticket_id, user_id, message, is_admin, created_at")
+      .eq("ticket_id", ticketId)
+      .order("created_at", { ascending: true }),
+    { data: [], error: null }
+  );
+  return res?.data || [];
+}
+
+async function addTicketReply(ticketId, userId, message, isAdmin = false){
+  const res = await safe("addTicketReply", () =>
+    sb.from("ticket_replies")
+      .insert({ ticket_id: ticketId, user_id: userId, message, is_admin: isAdmin })
+      .select()
+      .single(),
+    { data: null, error: { message: "timeout" } }
+  );
+  if (res?.error) return { error: res.error.message };
+  return { reply: res.data };
+}
+
 Object.assign(window, {
   fetchProducts, fetchProductById, createProduct, updateProduct, deleteProduct,
   fetchUserPurchaseIds, fetchUserPurchases, fetchAllSales, fetchUsersCount,
@@ -329,6 +362,7 @@ Object.assign(window, {
   normalizeProduct,
   logEvent, hasAcceptedTerms, acceptTerms,
   fetchUserActivity, fetchUserLogs, setUserBan,
-  fetchUserTickets, submitSupportTicket, fetchAllTickets, resolveTicket,
+  fetchUserTickets, submitSupportTicket, fetchAllTickets, resolveTicket, deleteTicket,
+  fetchTicketReplies, addTicketReply,
   Q_TIMEOUT, queryWithTimeout, safe,
 });

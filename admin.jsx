@@ -46,7 +46,7 @@ function AdminDashboard({ go, currentUser, onLogout }){
         {tab === "products" && <AdminProducts go={go}/>}
         {tab === "history"  && <AdminHistory/>}
         {tab === "users"    && <AdminUsers/>}
-        {tab === "suporte"  && <AdminSupport/>}
+        {tab === "suporte"  && <AdminSupport currentUser={currentUser}/>}
       </section>
     </div>
   );
@@ -1007,7 +1007,7 @@ function UserLogsModal({ user, onClose }){
 }
 
 // ─────────── Support ───────────
-const TICKET_SUBJECT = {
+const TICKET_SUBJECT_ADMIN = {
   duvida: "Dúvida sobre conteúdo",
   problema: "Problema técnico",
   pagamento: "Pagamento",
@@ -1015,12 +1015,150 @@ const TICKET_SUBJECT = {
   outro: "Outro",
 };
 
-function AdminSupport(){
+function AdminTicketCard({ ticket, currentUser, onResolved, onDeleted }){
+  const [open, setOpen] = useStateAdmin(false);
+  const [replies, setReplies] = useStateAdmin([]);
+  const [loaded, setLoaded] = useStateAdmin(false);
+  const [replyText, setReplyText] = useStateAdmin("");
+  const [replyBusy, setReplyBusy] = useStateAdmin(false);
+  const [resolving, setResolving] = useStateAdmin(false);
+  const [deleting, setDeleting] = useStateAdmin(false);
+
+  const toggle = async () => {
+    if (!open && !loaded) {
+      const r = await fetchTicketReplies(ticket.id);
+      setReplies(r);
+      setLoaded(true);
+    }
+    setOpen(o => !o);
+  };
+
+  const sendReply = async (e) => {
+    e.preventDefault();
+    const text = replyText.trim();
+    if (!text || replyBusy || !currentUser?.id) return;
+    setReplyBusy(true);
+    const { reply, error } = await addTicketReply(ticket.id, currentUser.id, text, true);
+    if (reply) { setReplies(prev => [...prev, reply]); setReplyText(""); }
+    if (error) alert("Erro ao enviar: " + error);
+    setReplyBusy(false);
+  };
+
+  const markResolved = async (e) => {
+    e.stopPropagation();
+    setResolving(true);
+    const { error } = await resolveTicket(ticket.id);
+    if (!error) onResolved(ticket.id);
+    setResolving(false);
+  };
+
+  const remove = async (e) => {
+    e.stopPropagation();
+    if (!window.confirm("Excluir esta solicitação? Não pode ser desfeito.")) return;
+    setDeleting(true);
+    const { error } = await deleteTicket(ticket.id);
+    if (!error) onDeleted(ticket.id);
+    else { alert("Erro ao excluir: " + error); setDeleting(false); }
+  };
+
+  const isOpen = ticket.status === "open";
+  const subj = TICKET_SUBJECT_ADMIN[ticket.subject] || ticket.subject;
+  const fmt = (d) => new Date(d).toLocaleDateString("pt-BR", { day:"numeric", month:"short", year:"numeric" }) +
+    " · " + new Date(d).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" });
+
+  return (
+    <div style={{ border:"1px solid var(--line)", borderRadius:"var(--radius-lg)", background:"var(--surface)", overflow:"hidden" }}>
+      {/* Header */}
+      <div onClick={toggle} style={{ padding:"16px 20px", display:"flex", alignItems:"center", gap:14, cursor:"pointer" }}>
+        <span style={{
+          flexShrink:0, fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:999,
+          background: isOpen ? "color-mix(in oklab, var(--acc-1) 18%, transparent)" : "color-mix(in oklab, var(--acc-2) 18%, transparent)",
+          color: isOpen ? "#a07800" : "var(--acc-2)",
+        }}>
+          {isOpen ? "Aberta" : "Resolvida"}
+        </span>
+
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontWeight:600, fontSize:14, marginBottom:3 }}>{subj}</div>
+          <div style={{ fontSize:12, color:"var(--muted)" }}>{ticket.email} · {fmt(ticket.created_at)}</div>
+        </div>
+
+        <div style={{ display:"flex", gap:6, flexShrink:0 }} onClick={e => e.stopPropagation()}>
+          {isOpen && (
+            <button className="btn" style={{ fontSize:12 }} disabled={resolving} onClick={markResolved}>
+              {resolving ? "…" : "Marcar resolvida"}
+            </button>
+          )}
+          <button style={{
+            width:32, height:32, borderRadius:8, border:"1px solid var(--line)",
+            background:"var(--surface)", color:"var(--primary)", cursor:"pointer",
+            display:"flex", alignItems:"center", justifyContent:"center",
+          }} disabled={deleting} onClick={remove} title="Excluir solicitação">
+            {deleting
+              ? <div style={{ width:12, height:12, border:"2px solid var(--line)", borderTopColor:"var(--primary)", borderRadius:"50%", animation:"spin .7s linear infinite" }} />
+              : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            }
+          </button>
+        </div>
+
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.2" strokeLinecap="round"
+          style={{ flexShrink:0, transition:"transform .2s", transform: open ? "rotate(180deg)" : "none" }}>
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
+      </div>
+
+      {/* Thread */}
+      {open && (
+        <div style={{ padding:"0 20px 20px", borderTop:"1px solid var(--line)" }}>
+          {/* Mensagem original (esquerda = usuário) */}
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-start", marginTop:16, marginBottom:10 }}>
+            <div style={{ maxWidth:"82%", padding:"9px 14px", borderRadius:"4px 14px 14px 14px", background:"var(--bg)", border:"1px solid var(--line)", fontSize:13, lineHeight:1.6, wordBreak:"break-word" }}>
+              {ticket.message}
+            </div>
+            <div style={{ fontSize:10, color:"var(--muted)", marginTop:3 }}>{fmt(ticket.created_at)}</div>
+          </div>
+
+          {!loaded && <div style={{ fontSize:13, color:"var(--muted)", padding:"6px 0" }}>Carregando...</div>}
+
+          {replies.map(r => (
+            <div key={r.id} style={{ display:"flex", flexDirection:"column", alignItems: r.is_admin ? "flex-end" : "flex-start", marginBottom:8 }}>
+              {r.is_admin && <div style={{ fontSize:9, fontWeight:700, color:"var(--muted)", marginBottom:3, letterSpacing:".08em" }}>VOCÊ</div>}
+              <div style={{
+                maxWidth:"82%", padding:"9px 14px",
+                borderRadius: r.is_admin ? "14px 4px 14px 14px" : "4px 14px 14px 14px",
+                background: r.is_admin ? "var(--primary)" : "var(--bg)",
+                color: r.is_admin ? "var(--primary-ink)" : "var(--fg)",
+                border: r.is_admin ? "none" : "1px solid var(--line)",
+                fontSize:13, lineHeight:1.5, wordBreak:"break-word",
+              }}>
+                {r.message}
+              </div>
+              <div style={{ fontSize:10, color:"var(--muted)", marginTop:3 }}>
+                {new Date(r.created_at).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" })}
+              </div>
+            </div>
+          ))}
+
+          {loaded && (
+            <form onSubmit={sendReply} style={{ display:"flex", gap:8, marginTop:14 }}>
+              <input className="input" value={replyText} onChange={e => setReplyText(e.target.value)}
+                placeholder="Responder ao usuário..." style={{ flex:1, fontSize:13 }} />
+              <button className="btn primary" type="submit" disabled={replyBusy || !replyText.trim()}
+                style={{ opacity:replyBusy ? .7 : 1, whiteSpace:"nowrap" }}>
+                {replyBusy ? "…" : "Enviar"}
+              </button>
+            </form>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminSupport({ currentUser }){
   const [tickets, setTickets] = useStateAdmin([]);
   const [loading, setLoading] = useStateAdmin(true);
   const [filter, setFilter] = useStateAdmin("open");
-  const [expanded, setExpanded] = useStateAdmin(null);
-  const [resolving, setResolving] = useStateAdmin(null);
 
   useEffectAdmin(() => {
     let mounted = true;
@@ -1029,99 +1167,38 @@ function AdminSupport(){
   }, []);
 
   const openCount = useMemoAdmin(() => tickets.filter(t => t.status === "open").length, [tickets]);
-
   const filtered = useMemoAdmin(() =>
     filter === "all" ? tickets : tickets.filter(t => t.status === filter),
     [tickets, filter]
   );
 
-  const markResolved = async (id, e) => {
-    e.stopPropagation();
-    setResolving(id);
-    const { error } = await resolveTicket(id);
-    if (!error) setTickets(prev => prev.map(t => t.id === id ? { ...t, status: "resolved" } : t));
-    setResolving(null);
-  };
-
-  const fmt = (d) => new Date(d).toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" }) +
-    " · " + new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const handleResolved = (id) => setTickets(prev => prev.map(t => t.id === id ? { ...t, status:"resolved" } : t));
+  const handleDeleted  = (id) => setTickets(prev => prev.filter(t => t.id !== id));
 
   return (
-    <div style={{ marginTop: 28 }}>
-      {/* Filter bar */}
-      <div style={{ display:"flex", gap: 8, marginBottom: 20 }}>
-        {[["open", `Abertas (${openCount})`], ["resolved", "Resolvidas"], ["all", "Todas"]].map(([v, l]) => (
+    <div style={{ marginTop:28 }}>
+      <div style={{ display:"flex", gap:8, marginBottom:20 }}>
+        {[["open", `Abertas (${openCount})`], ["resolved","Resolvidas"], ["all","Todas"]].map(([v,l]) => (
           <button key={v} className={filter === v ? "btn primary" : "btn"}
-            onClick={() => setFilter(v)} style={{ fontSize: 13 }}>
-            {l}
-          </button>
+            onClick={() => setFilter(v)} style={{ fontSize:13 }}>{l}</button>
         ))}
       </div>
 
-      {loading && <div style={{ textAlign:"center", color:"var(--muted)", padding: 60 }}>Carregando...</div>}
+      {loading && <div style={{ textAlign:"center", color:"var(--muted)", padding:60 }}>Carregando...</div>}
 
       {!loading && filtered.length === 0 && (
-        <div style={{ textAlign:"center", color:"var(--muted)", padding: 60, fontSize: 14, lineHeight: 1.8 }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>✓</div>
-          {filter === "open" ? "Nenhuma solicitação aberta." : filter === "resolved" ? "Nenhuma solicitação resolvida." : "Nenhuma solicitação ainda."}
+        <div style={{ textAlign:"center", color:"var(--muted)", padding:60, fontSize:14, lineHeight:1.8 }}>
+          <div style={{ fontSize:32, marginBottom:8 }}>✓</div>
+          {filter === "open" ? "Nenhuma solicitação aberta." : filter === "resolved" ? "Nenhuma resolvida." : "Nenhuma solicitação ainda."}
         </div>
       )}
 
       {!loading && filtered.length > 0 && (
-        <div style={{ display:"flex", flexDirection:"column", gap: 8 }}>
-          {filtered.map(t => {
-            const isOpen = t.status === "open";
-            const isExp = expanded === t.id;
-            const subj = TICKET_SUBJECT[t.subject] || t.subject;
-            return (
-              <div key={t.id} style={{ border:"1px solid var(--line)", borderRadius:"var(--radius-lg)", background:"var(--surface)", overflow:"hidden" }}>
-                {/* Header row */}
-                <div
-                  onClick={() => setExpanded(isExp ? null : t.id)}
-                  style={{ padding:"16px 20px", display:"flex", alignItems:"center", gap: 14, cursor:"pointer" }}
-                >
-                  {/* Status badge */}
-                  <span style={{
-                    flexShrink: 0, fontSize: 11, fontWeight: 700, padding:"3px 9px", borderRadius: 999,
-                    background: isOpen ? "color-mix(in oklab, var(--acc-1) 18%, transparent)" : "color-mix(in oklab, var(--acc-2) 18%, transparent)",
-                    color: isOpen ? "#a07800" : "var(--acc-2)",
-                  }}>
-                    {isOpen ? "Aberta" : "Resolvida"}
-                  </span>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 3 }}>{subj}</div>
-                    <div style={{ fontSize: 12, color:"var(--muted)", display:"flex", gap: 10, flexWrap:"wrap" }}>
-                      <span>{t.email}</span>
-                      <span>·</span>
-                      <span>{fmt(t.created_at)}</span>
-                    </div>
-                  </div>
-
-                  {isOpen && (
-                    <button className="btn" style={{ fontSize: 12, flexShrink: 0 }}
-                      disabled={resolving === t.id}
-                      onClick={(e) => markResolved(t.id, e)}>
-                      {resolving === t.id ? "…" : "Marcar resolvida"}
-                    </button>
-                  )}
-
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.2" strokeLinecap="round" style={{ flexShrink: 0, transition:"transform .2s", transform: isExp ? "rotate(180deg)" : "rotate(0deg)" }}>
-                    <path d="M6 9l6 6 6-6"/>
-                  </svg>
-                </div>
-
-                {/* Expanded message */}
-                {isExp && (
-                  <div style={{ padding:"0 20px 20px", borderTop:"1px solid var(--line)" }}>
-                    <div style={{ paddingTop: 16, fontSize: 14, lineHeight: 1.8, color:"var(--fg)", whiteSpace:"pre-wrap" }}>
-                      {t.message}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {filtered.map(t => (
+            <AdminTicketCard key={t.id} ticket={t} currentUser={currentUser}
+              onResolved={handleResolved} onDeleted={handleDeleted} />
+          ))}
         </div>
       )}
     </div>

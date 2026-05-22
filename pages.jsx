@@ -1404,33 +1404,120 @@ function AccountSettings({ go, currentUser, refreshUser }){
 
         {tickets.length > 0 && (
           <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--line)" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 4 }}>
               Suas solicitações
             </div>
-            {tickets.map(t => {
-              const subjectLabel = { duvida: "Dúvida sobre conteúdo", problema: "Problema técnico", pagamento: "Pagamento", acesso: "Acesso ao resumo", outro: "Outro" }[t.subject] || t.subject;
-              const isOpen = t.status === "open";
-              return (
-                <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3 }}>{subjectLabel}</div>
-                    <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                      {new Date(t.created_at).toLocaleDateString("pt-BR")} · {t.message.slice(0, 70)}{t.message.length > 70 ? "…" : ""}
-                    </div>
-                  </div>
-                  <span style={{
-                    flexShrink: 0, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 999,
-                    background: isOpen ? "color-mix(in oklab, var(--acc-1) 18%, transparent)" : "color-mix(in oklab, var(--acc-2) 18%, transparent)",
-                    color: isOpen ? "#a07800" : "var(--acc-2)",
-                  }}>
-                    {isOpen ? "Aberta" : "Resolvida"}
-                  </span>
-                </div>
-              );
-            })}
+            {tickets.map(t => <TicketThread key={t.id} ticket={t} currentUser={currentUser} />)}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+//  TICKET THREAD (used inside AccountSettings)
+// ─────────────────────────────────────────────────────────
+const TICKET_SUBJ = { duvida:"Dúvida sobre conteúdo", problema:"Problema técnico", pagamento:"Pagamento", acesso:"Acesso ao resumo", outro:"Outro" };
+
+function TicketThread({ ticket, currentUser }){
+  const [open, setOpen] = useStateP(false);
+  const [replies, setReplies] = useStateP([]);
+  const [loaded, setLoaded] = useStateP(false);
+  const [replyText, setReplyText] = useStateP("");
+  const [replyBusy, setReplyBusy] = useStateP(false);
+
+  const toggle = async () => {
+    if (!open && !loaded) {
+      const r = await fetchTicketReplies(ticket.id);
+      setReplies(r);
+      setLoaded(true);
+    }
+    setOpen(o => !o);
+  };
+
+  const sendReply = async (e) => {
+    e.preventDefault();
+    const text = replyText.trim();
+    if (!text || replyBusy) return;
+    setReplyBusy(true);
+    const { reply, error } = await addTicketReply(ticket.id, currentUser.id, text, false);
+    if (reply) { setReplies(prev => [...prev, reply]); setReplyText(""); }
+    if (error) alert("Erro ao enviar: " + error);
+    setReplyBusy(false);
+  };
+
+  const isOpen = ticket.status === "open";
+  const subj = TICKET_SUBJ[ticket.subject] || ticket.subject;
+
+  return (
+    <div style={{ borderBottom:"1px solid var(--line)" }}>
+      <div onClick={toggle} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"13px 0", cursor:"pointer", gap:12 }}>
+        <div style={{ minWidth:0 }}>
+          <div style={{ fontSize:13, fontWeight:600, marginBottom:3 }}>{subj}</div>
+          <div style={{ fontSize:12, color:"var(--muted)" }}>
+            {new Date(ticket.created_at).toLocaleDateString("pt-BR")}
+          </div>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
+          <span style={{
+            fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:999,
+            background: isOpen ? "color-mix(in oklab, var(--acc-1) 18%, transparent)" : "color-mix(in oklab, var(--acc-2) 18%, transparent)",
+            color: isOpen ? "#a07800" : "var(--acc-2)",
+          }}>{isOpen ? "Aberta" : "Resolvida"}</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2.2" strokeLinecap="round"
+            style={{ transition:"transform .2s", transform: open ? "rotate(180deg)" : "none" }}>
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </div>
+      </div>
+
+      {open && (
+        <div style={{ paddingBottom:16 }}>
+          {/* Mensagem original (direita = usuário) */}
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", marginBottom:10 }}>
+            <div style={{ maxWidth:"82%", padding:"9px 14px", borderRadius:"14px 4px 14px 14px", background:"var(--primary)", color:"var(--primary-ink)", fontSize:13, lineHeight:1.6, wordBreak:"break-word" }}>
+              {ticket.message}
+            </div>
+            <div style={{ fontSize:10, color:"var(--muted)", marginTop:3 }}>
+              {new Date(ticket.created_at).toLocaleDateString("pt-BR")}
+            </div>
+          </div>
+
+          {/* Respostas */}
+          {!loaded && <div style={{ fontSize:13, color:"var(--muted)", padding:"6px 0" }}>Carregando...</div>}
+          {replies.map(r => (
+            <div key={r.id} style={{ display:"flex", flexDirection:"column", alignItems: r.is_admin ? "flex-start" : "flex-end", marginBottom:8 }}>
+              {r.is_admin && <div style={{ fontSize:9, fontWeight:700, color:"var(--primary)", letterSpacing:".1em", marginBottom:3 }}>SUPORTE</div>}
+              <div style={{
+                maxWidth:"82%", padding:"9px 14px",
+                borderRadius: r.is_admin ? "4px 14px 14px 14px" : "14px 4px 14px 14px",
+                background: r.is_admin ? "var(--surface)" : "var(--primary)",
+                color: r.is_admin ? "var(--fg)" : "var(--primary-ink)",
+                border: r.is_admin ? "1px solid var(--line)" : "none",
+                fontSize:13, lineHeight:1.5, wordBreak:"break-word",
+              }}>
+                {r.message}
+              </div>
+              <div style={{ fontSize:10, color:"var(--muted)", marginTop:3 }}>
+                {new Date(r.created_at).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" })}
+              </div>
+            </div>
+          ))}
+
+          {/* Resposta do usuário (só se aberta) */}
+          {isOpen && loaded && (
+            <form onSubmit={sendReply} style={{ display:"flex", gap:8, marginTop:12 }}>
+              <input className="input" value={replyText} onChange={e => setReplyText(e.target.value)}
+                placeholder="Responder..." style={{ flex:1, fontSize:13 }} />
+              <button className="btn primary" type="submit" disabled={replyBusy || !replyText.trim()}
+                style={{ opacity:replyBusy ? .7 : 1, whiteSpace:"nowrap", padding:"0 16px" }}>
+                {replyBusy ? "…" : "Enviar"}
+              </button>
+            </form>
+          )}
+        </div>
+      )}
     </div>
   );
 }
