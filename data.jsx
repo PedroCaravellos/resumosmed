@@ -2,7 +2,7 @@
 // Princípio: nenhuma função aqui pode pendurar a UI. Tudo tem timeout
 // explícito e devolve um valor padrão seguro em caso de erro.
 
-const Q_TIMEOUT = 12000;
+const Q_TIMEOUT = 6000;
 
 function queryWithTimeout(promise, label = "query"){
   return Promise.race([

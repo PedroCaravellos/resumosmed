@@ -8,18 +8,27 @@ const { useState: useStateAuth, useEffect: useEffectAuth } = React;
 // Pega session + profile e devolve um currentUser unificado
 async function loadCurrentUser(){
   if (!window.sb) return null;
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) return null;
-  return await loadProfileFor(session.user);
+  return Promise.race([
+    (async () => {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) return null;
+      return loadProfileFor(session.user);
+    })(),
+    new Promise(resolve => setTimeout(() => resolve(null), 6000)),
+  ]);
 }
 
 async function loadProfileFor(authUser){
   if (!authUser) return null;
-  // Wrap em safe() pra que falha de rede não pendure o login
-  const res = await (window.safe ? window.safe("loadProfileFor", () =>
-    sb.from("profiles").select("id, name, email, role, banned, banned_reason, avatar_url, created_at").eq("id", authUser.id).single(),
-    { data: null, error: null }
-  ) : sb.from("profiles").select("id, name, email, role, banned, banned_reason, avatar_url, created_at").eq("id", authUser.id).single().catch(e=>({data:null, error:e})));
+  // Paraleliza profile + purchases — reduz waterfall sequencial
+  const safeProfile = window.safe
+    ? window.safe("loadProfileFor", () =>
+        sb.from("profiles").select("id, name, email, role, banned, banned_reason, avatar_url, created_at").eq("id", authUser.id).single(),
+        { data: null, error: null }
+      )
+    : sb.from("profiles").select("id, name, email, role, banned, banned_reason, avatar_url, created_at").eq("id", authUser.id).single().catch(e=>({data:null, error:e}));
+
+  const [res, purchases] = await Promise.all([safeProfile, fetchUserPurchaseIds(authUser.id)]);
 
   const profile = res?.data;
   const error = res?.error;
@@ -34,7 +43,6 @@ async function loadProfileFor(authUser){
     try { await sb.auth.signOut(); } catch {}
     return { ...base, _banned: true };
   }
-  const purchases = await fetchUserPurchaseIds(base.id);
   return { ...base, purchases };
 }
 

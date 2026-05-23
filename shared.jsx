@@ -171,7 +171,7 @@ function Logo({ size = 24 }){
 }
 
 // ─────────── Nav ───────────
-function Nav({ route, go, cartCount, dark, toggleDark, currentUser, onLogout }){
+function Nav({ route, go, cartCount, dark, toggleDark, currentUser, authReady, onLogout }){
   const [menuOpen, setMenuOpen] = React.useState(false);
   React.useEffect(()=>{
     const close = ()=>setMenuOpen(false);
@@ -201,7 +201,9 @@ function Nav({ route, go, cartCount, dark, toggleDark, currentUser, onLogout }){
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>
             {cartCount > 0 && <span style={{background:"var(--primary)", color:"var(--primary-ink)", borderRadius:999, padding:"1px 7px", fontSize: 11, fontWeight: 700}}>{cartCount}</span>}
           </button>
-          {currentUser ? (
+          {!authReady ? (
+            <div style={{width: 80, height: 36, borderRadius: 999, background: "var(--line)", opacity: .5}} />
+          ) : currentUser ? (
             <div style={{position:"relative"}} onClick={(e)=>e.stopPropagation()}>
               <button className="btn" onClick={()=>setMenuOpen(o=>!o)} style={{paddingLeft: 6}}>
                 <div style={{width: 26, height: 26, borderRadius: 999, background: isAdmin ? "var(--fg)" : "var(--acc-3)", color: isAdmin ? "var(--bg)" : "var(--fg)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight: 700, fontSize: 12}}>

@@ -69,7 +69,7 @@ function App(){
     let mounted = true;
     const guard = setTimeout(()=>{
       if (mounted) setAuthReady(true);
-    }, 5000);
+    }, 3000);
 
     loadCurrentUser()
       .then(u => {
@@ -91,7 +91,10 @@ function App(){
 
     const { data: sub } = sb.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
-      if (!session){ setCurrentUser(null); return; }
+      if (!session){ setCurrentUser(null); setAuthReady(true); return; }
+      // TOKEN_REFRESHED: sessão renovada automaticamente — não precisa recarregar perfil
+      // PASSWORD_RECOVERY: ResetPassword cuida do fluxo
+      if (event === "TOKEN_REFRESHED" || event === "PASSWORD_RECOVERY") return;
       try {
         const u = await loadProfileFor(session.user);
         if (!mounted) return;
@@ -101,6 +104,7 @@ function App(){
           return;
         }
         setCurrentUser(u);
+        setAuthReady(true);
       } catch (err) {
         console.error("[auth] onAuthStateChange:", err);
       }
@@ -177,6 +181,7 @@ function App(){
           dark={t.dark}
           toggleDark={()=>setTweak("dark", !t.dark)}
           currentUser={currentUser}
+          authReady={authReady}
           onLogout={handleLogout}
         />
       )}
