@@ -116,6 +116,31 @@ Deno.serve(async (req) => {
       return;
     }
     console.log("[mp-webhook] Pagamento confirmado:", externalRef, "usuário:", pending.user_id);
+
+    // Email de confirmação de compra — fire-and-forget
+    try {
+      const { data: { user } } = await db.auth.admin.getUserById(pending.user_id);
+      if (user?.email) {
+        const name = user.user_metadata?.name || user.email.split("@")[0];
+        const items = pending.items as Array<{ title: string; price: number }>;
+        const method = payment.payment_type_id === "credit_card" ? "Cartão" : "Pix";
+        const { htmlPurchase } = await import("../send-email/index.ts");
+        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({
+            to: user.email,
+            subject: "Seus resumos estão liberados! 📚",
+            html: htmlPurchase(name, user.email, items, method),
+          }),
+        });
+      }
+    } catch (emailErr) {
+      console.warn("[mp-webhook] Falha ao enviar email de confirmação:", emailErr);
+    }
   })();
 
   processing.catch(err => console.error("[mp-webhook] Erro no processamento:", err));
