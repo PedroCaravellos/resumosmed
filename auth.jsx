@@ -268,6 +268,62 @@ function ResetPassword({ go, onAuth }){
   const [err, setErr] = useStateAuth("");
   const [busy, setBusy] = useStateAuth(false);
   const [done, setDone] = useStateAuth(false);
+  const [linkError, setLinkError] = useStateAuth(null);
+  const [sessionReady, setSessionReady] = useStateAuth(false);
+
+  useEffectAuth(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+
+    const errorCode = params.get("error_code") || hash.get("error_code");
+    if (errorCode) {
+      setLinkError(
+        errorCode === "otp_expired"
+          ? "Este link de redefinição expirou ou já foi usado em outro dispositivo. Solicite um novo link."
+          : "Link inválido. Solicite um novo link de redefinição."
+      );
+      return;
+    }
+
+    // PKCE: troca o code pelo token de sessão
+    const code = params.get("code");
+    if (code) {
+      sb.auth.exchangeCodeForSession(code).then(({ error }) => {
+        if (error) setLinkError("Não foi possível validar o link. Solicite um novo.");
+        else setSessionReady(true);
+      });
+      return;
+    }
+
+    // Sem code e sem erro — verifica se já tem sessão ativa (ex: link implicit)
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session) setSessionReady(true);
+      else setLinkError("Link inválido ou expirado. Solicite um novo link de redefinição.");
+    });
+  }, []);
+
+  if (linkError) {
+    return (
+      <AuthShell kicker="Link expirado" title="Link inválido." sub={linkError}>
+        <div style={{display:"flex", flexDirection:"column", gap: 10}}>
+          <button className="btn primary lg" onClick={()=>go({name:"forgot"})} style={{width:"100%", justifyContent:"center"}}>
+            Solicitar novo link →
+          </button>
+          <button className="btn lg" onClick={()=>go({name:"login"})} style={{width:"100%", justifyContent:"center"}}>
+            Voltar ao login
+          </button>
+        </div>
+      </AuthShell>
+    );
+  }
+
+  if (!sessionReady) {
+    return (
+      <AuthShell kicker="Aguarde" title="Validando link…" sub="Isso leva um segundo.">
+        <div style={{textAlign:"center", padding: 20, color:"var(--muted)", fontSize: 28}}>⏳</div>
+      </AuthShell>
+    );
+  }
 
   const submit = async (e) => {
     e.preventDefault();
