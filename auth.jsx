@@ -285,7 +285,19 @@ function ResetPassword({ go, onAuth }){
       return;
     }
 
-    // PKCE: troca o code pelo token de sessão
+    // Fluxo implícito: access_token + type=recovery no hash
+    const accessToken = hash.get("access_token");
+    const refreshToken = hash.get("refresh_token");
+    if (accessToken && hash.get("type") === "recovery") {
+      sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken || "" })
+        .then(({ error }) => {
+          if (error) setLinkError("Não foi possível validar o link. Solicite um novo.");
+          else setSessionReady(true);
+        });
+      return;
+    }
+
+    // Fluxo PKCE: code no query param
     const code = params.get("code");
     if (code) {
       sb.auth.exchangeCodeForSession(code).then(({ error }) => {
@@ -295,7 +307,7 @@ function ResetPassword({ go, onAuth }){
       return;
     }
 
-    // Sem code e sem erro — verifica se já tem sessão ativa (ex: link implicit)
+    // Sem token — verifica se já tem sessão ativa
     sb.auth.getSession().then(({ data: { session } }) => {
       if (session) setSessionReady(true);
       else setLinkError("Link inválido ou expirado. Solicite um novo link de redefinição.");
