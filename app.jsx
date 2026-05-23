@@ -40,12 +40,14 @@ function bestContrast(hex){
 
 function App(){
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-  // Detecta query string ?reset=1 (link de email do reset de senha)
+  // Detecta query string ?reset=1 ou hash #type=recovery (link de email do Supabase)
   const initialRoute = (() => {
     try {
       const qs = new URLSearchParams(window.location.search);
       if (qs.get("reset") === "1") return { name: "reset-password" };
       if (qs.get("payment_return") === "1") return { name: "payment-return" };
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      if (hash.get("type") === "recovery") return { name: "reset-password" };
     } catch {}
     return { name: "landing" };
   })();
