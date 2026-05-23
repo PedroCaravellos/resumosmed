@@ -1226,9 +1226,13 @@ function AccountSettings({ go, currentUser, refreshUser }){
     if (currentPass === newPass) { setPassMsg({ ok: false, text: "A nova senha deve ser diferente da atual." }); return; }
     setPassBusy(true); setPassMsg(null);
     try {
-      // Verifica senha atual antes de trocar
-      const { error: authErr } = await sb.auth.signInWithPassword({ email: currentUser.email, password: currentPass });
-      if (authErr) { setPassMsg({ ok: false, text: "Senha atual incorreta." }); return; }
+      // Verifica senha atual via fetch direto — não substitui a sessão atual
+      const verifyRes = await fetch(`${window.SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": window.SUPABASE_ANON_KEY },
+        body: JSON.stringify({ email: currentUser.email, password: currentPass }),
+      });
+      if (!verifyRes.ok) { setPassMsg({ ok: false, text: "Senha atual incorreta." }); return; }
       const { error } = await sb.auth.updateUser({ password: newPass });
       if (error) throw error;
       setPassMsg({ ok: true, text: "Senha atualizada!" });
