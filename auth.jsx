@@ -75,7 +75,8 @@ async function signOut(){
 
 async function resetPassword(email){
   if (!email?.trim()) return { error: "Informe seu email." };
-  const redirectTo = window.location.origin + window.location.pathname + "?reset=1";
+  const origin = window.location.hostname === "localhost" ? "https://resumosmed.com" : window.location.origin;
+  const redirectTo = origin + "/?reset=1";
   const { error } = await sb.auth.resetPasswordForEmail(email.trim(), { redirectTo });
   if (error) return { error: traduzirErro(error.message) };
   return { ok: true };
