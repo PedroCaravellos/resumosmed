@@ -5,7 +5,16 @@ const MP_API = "https://api.mercadopago.com";
 type SupabaseClient = ReturnType<typeof createClient>;
 type MPPayment = Record<string, unknown>;
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "content-type, authorization, x-client-info, apikey",
+};
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: CORS });
+  }
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
@@ -39,7 +48,7 @@ Deno.serve(async (req) => {
     const status = await processExternalRef(externalRefQuery, accessToken, db);
     return new Response(JSON.stringify({ status }), {
       status: 200,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      headers: { "Content-Type": "application/json", ...CORS },
     });
   }
 
