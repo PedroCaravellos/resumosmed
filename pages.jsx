@@ -1109,6 +1109,19 @@ function PaymentReturn({ go, clearCart, refreshUser, currentUser, cart }){
       return;
     }
 
+    const forceCheck = () => {
+      // Chama o webhook com external_reference para forçar verificação no MP,
+      // sem depender do IPN chegar. Fire-and-forget — o próximo poll detecta o resultado.
+      fetch(`${window.SUPABASE_URL}/functions/v1/mercadopago-webhook?external_reference=${chargeId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      }).catch(() => {});
+    };
+
+    // Força verificação imediata ao entrar na tela (não espera o IPN)
+    forceCheck();
+
     let attempts = 0;
     intervalRef.current = setInterval(async () => {
       attempts++;
@@ -1127,6 +1140,9 @@ function PaymentReturn({ go, clearCart, refreshUser, currentUser, cart }){
           else setStatus("error");
         }
       } catch { /* rede instável, continua */ }
+
+      // A cada 10s força nova verificação no MP (caso o IPN não tenha chegado)
+      if (attempts % 5 === 0) forceCheck();
     }, 2000);
   }, [go, clearCart, refreshUser]);
 
