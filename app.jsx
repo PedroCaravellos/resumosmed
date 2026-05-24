@@ -135,6 +135,13 @@ function App(){
   const removeFromCart = (id) => setCart(c => c.filter(x=>x.id!==id));
   const clearCart = () => setCart([]);
 
+  // Remove do carrinho itens que já foram comprados (detecta compra mesmo sem passar por PaymentReturn)
+  useEffectA(() => {
+    const purchased = currentUser?.purchases;
+    if (!purchased?.length) return;
+    setCart(c => c.filter(item => !purchased.includes(item.id)));
+  }, [currentUser?.purchases]);
+
   const handleAuth = (u) => setCurrentUser(u);
   const handleLogout = async () => {
     await signOut();
