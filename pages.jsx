@@ -963,8 +963,13 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
     setPaying(true);
     setErrMsg("");
     try {
+      // Busca sessão explicitamente para garantir token válido (evita fallback pro anon key)
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) { go({ name:"login" }); return; }
+
       const completionUrl = window.location.origin + "?payment_return=1";
       const { data, error } = await sb.functions.invoke("create-mp-preference", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
         body: { items: cart, cpf: rawCpf, name: currentUser.name, email: currentUser.email, completionUrl },
       });
       if (error || !data?.checkoutUrl){
