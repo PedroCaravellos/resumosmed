@@ -6,10 +6,6 @@
 -- ANTES DE RODAR: substitua os dois valores abaixo pelos seus valores reais.
 -- =============================================================================
 
--- Configura as variáveis do projeto (substitua pelos valores reais):
-ALTER DATABASE postgres SET app.supabase_url   = 'https://tlaoalfnzykrdwwlvmpq.supabase.co';
-ALTER DATABASE postgres SET app.service_role_key = 'COLE_AQUI_SUA_SERVICE_ROLE_KEY';
-
 -- =============================================================================
 -- 1. EMAIL DE BOAS-VINDAS
 --    Disparado quando um novo perfil de usuário é criado (role = 'user')
@@ -17,8 +13,8 @@ ALTER DATABASE postgres SET app.service_role_key = 'COLE_AQUI_SUA_SERVICE_ROLE_K
 CREATE OR REPLACE FUNCTION fn_email_welcome()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-  v_url  text := current_setting('app.supabase_url', true);
-  v_key  text := current_setting('app.service_role_key', true);
+  v_url  text := 'https://tlaoalfnzykrdwwlvmpq.supabase.co';
+  v_key  text := 'ROTATED';
   v_name text := COALESCE(NEW.name, split_part(NEW.email, '@', 1));
   v_html text;
 BEGIN
@@ -75,8 +71,8 @@ CREATE TRIGGER trg_email_welcome
 CREATE OR REPLACE FUNCTION fn_email_ticket_opened()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-  v_url   text := current_setting('app.supabase_url', true);
-  v_key   text := current_setting('app.service_role_key', true);
+  v_url   text := 'https://tlaoalfnzykrdwwlvmpq.supabase.co';
+  v_key   text := 'ROTATED';
   v_email text;
   v_name  text;
   v_label text;
@@ -146,8 +142,8 @@ CREATE TRIGGER trg_email_ticket_opened
 CREATE OR REPLACE FUNCTION fn_email_ticket_reply()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-  v_url   text := current_setting('app.supabase_url', true);
-  v_key   text := current_setting('app.service_role_key', true);
+  v_url   text := 'https://tlaoalfnzykrdwwlvmpq.supabase.co';
+  v_key   text := 'ROTATED';
   v_email text;
   v_name  text;
   v_reply text;
@@ -207,8 +203,8 @@ CREATE TRIGGER trg_email_ticket_reply
 CREATE OR REPLACE FUNCTION fn_email_ticket_resolved()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
-  v_url   text := current_setting('app.supabase_url', true);
-  v_key   text := current_setting('app.service_role_key', true);
+  v_url   text := 'https://tlaoalfnzykrdwwlvmpq.supabase.co';
+  v_key   text := 'ROTATED';
   v_email text;
   v_name  text;
   v_html  text;

@@ -212,6 +212,8 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
   const [showHelp, setShowHelp] = useStateLib(false);
   const [showTerms, setShowTerms] = useStateLib(false);
   const [termsChecking, setTermsChecking] = useStateLib(true);
+  const [deviceStatus, setDeviceStatus] = useStateLib("checking");
+  const [currentFp, setCurrentFp] = useStateLib("");
   const [revealed, setRevealed] = useStateLib(false);
   const [isFullscreen, setIsFullscreen] = useStateLib(false);
   const [flashOn, setFlashOn] = useStateLib(false);
@@ -246,11 +248,27 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
       .catch(err => { console.warn("[terms]", err); setTermsChecking(false); });
   }, [currentUser?.id, isAdmin]);
 
+  // Verificação de dispositivo — roda após terms serem resolvidos
+  useEffectLib(()=>{
+    if (isAdmin){ setDeviceStatus("ok"); return; }
+    if (!currentUser || termsChecking || showTerms) return;
+    generateDeviceFingerprint().then(fp => {
+      setCurrentFp(fp);
+      if (!currentUser.device_fingerprint) {
+        setDeviceStatus("unbound");
+      } else if (currentUser.device_fingerprint === fp) {
+        setDeviceStatus("ok");
+      } else {
+        setDeviceStatus("blocked");
+      }
+    });
+  }, [currentUser?.id, currentUser?.device_fingerprint, isAdmin, termsChecking, showTerms]);
+
   // Loga abertura
   useEffectLib(()=>{
-    if (!hasPdf || isAdmin || !currentUser || showTerms || termsChecking) return;
+    if (!hasPdf || isAdmin || !currentUser || showTerms || termsChecking || deviceStatus !== "ok") return;
     trackEvent("open", "info", { title: r.title });
-  }, [hasPdf, showTerms, termsChecking, currentUser?.id, r?.id, isAdmin, trackEvent]);
+  }, [hasPdf, showTerms, termsChecking, deviceStatus, currentUser?.id, r?.id, isAdmin, trackEvent]);
 
   // PDF.js state
   const [pdfDoc, setPdfDoc] = useStateLib(null);
@@ -750,6 +768,60 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
       {/* Terms of use modal */}
       {showTerms && currentUser && !isAdmin && (
         <TermsModal user={currentUser} onAccept={()=>setShowTerms(false)} onDecline={()=>go({ name:"library" })}/>
+      )}
+
+      {/* Device bind modal — primeiro acesso após compra */}
+      {!showTerms && !termsChecking && deviceStatus === "unbound" && currentUser && !isAdmin && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.7)",backdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div style={{background:"var(--surface)",border:"1px solid var(--line)",borderRadius:"var(--radius-lg)",padding:36,maxWidth:440,width:"100%",boxShadow:"var(--shadow-pop)"}}>
+            <div style={{fontSize:32,marginBottom:16,textAlign:"center"}}>🔒</div>
+            <h2 style={{margin:"0 0 10px",fontSize:21,fontWeight:700,textAlign:"center"}}>Vincular dispositivo</h2>
+            <p style={{color:"var(--muted)",fontSize:14.5,lineHeight:1.6,textAlign:"center",margin:"0 0 20px"}}>
+              Antes de abrir seu primeiro resumo, vincule um dispositivo à sua conta.
+            </p>
+            <div style={{background:"var(--bg)",border:"1px solid var(--line-strong)",borderRadius:12,padding:"14px 18px",textAlign:"center",marginBottom:20}}>
+              <div style={{fontSize:13,color:"var(--muted)",marginBottom:4}}>Dispositivo detectado</div>
+              <div style={{fontWeight:700,fontSize:16}}>{getDeviceName()}</div>
+            </div>
+            <p style={{fontSize:12.5,color:"var(--muted)",lineHeight:1.55,textAlign:"center",marginBottom:24}}>
+              A partir de agora, seus resumos só poderão ser acessados neste dispositivo. Para trocar, entre em contato com o suporte.
+            </p>
+            <button className="btn primary lg" style={{width:"100%",justifyContent:"center"}} onClick={async ()=>{
+              const r2 = await saveDeviceFingerprint(currentUser.id, currentFp, getDeviceName());
+              if (!r2.error) setDeviceStatus("ok");
+            }}>
+              Vincular este dispositivo →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Tela de bloqueio — dispositivo diferente */}
+      {!showTerms && !termsChecking && deviceStatus === "blocked" && currentUser && !isAdmin && (
+        <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div style={{maxWidth:420,width:"100%",textAlign:"center"}}>
+            <div style={{fontSize:48,marginBottom:20}}>🔒</div>
+            <h2 style={{margin:"0 0 12px",fontSize:24,fontWeight:700}}>Acesso bloqueado</h2>
+            <p style={{color:"var(--muted)",fontSize:15,lineHeight:1.65,marginBottom:8}}>
+              Esta conta está vinculada a:
+            </p>
+            <div style={{display:"inline-block",background:"var(--surface)",border:"1px solid var(--line-strong)",borderRadius:10,padding:"10px 20px",fontWeight:700,fontSize:15,marginBottom:24}}>
+              {currentUser.device_name || "outro dispositivo"}
+            </div>
+            <p style={{color:"var(--muted)",fontSize:14,lineHeight:1.6,marginBottom:28}}>
+              Se quiser trocar de dispositivo, abra um ticket de suporte. Sua solicitação será analisada pela equipe.
+            </p>
+            <button className="btn primary lg" style={{width:"100%",justifyContent:"center",marginBottom:12}} onClick={()=>{
+              sessionStorage.setItem("ticket_prefill", JSON.stringify({subject:"acesso", message:"Preciso trocar o dispositivo vinculado à minha conta.\n\nDispositivo atual: " + getDeviceName()}));
+              go({name:"profile"});
+            }}>
+              Solicitar troca de dispositivo
+            </button>
+            <button className="btn lg" style={{width:"100%",justifyContent:"center"}} onClick={()=>go({name:"library"})}>
+              Voltar à biblioteca
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

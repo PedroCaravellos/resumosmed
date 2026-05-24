@@ -1,7 +1,40 @@
-// auth.jsx — Supabase Auth + Login/Signup/AdminLogin
+// auth.jsx — Supabase Auth + Login/Signup
 // Phase 3: profiles + purchases agora vêm do Supabase.
 
 const { useState: useStateAuth, useEffect: useEffectAuth } = React;
+
+// ─────────── Device fingerprint ───────────
+
+async function generateDeviceFingerprint(){
+  const components = [
+    navigator.userAgent,
+    navigator.language,
+    screen.width + "x" + screen.height,
+    screen.colorDepth,
+    navigator.hardwareConcurrency,
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+  ].join("|");
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(components));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+function getDeviceName(){
+  const ua = navigator.userAgent;
+  let os = "Dispositivo";
+  if (/iPhone/.test(ua)) os = "iPhone";
+  else if (/iPad/.test(ua)) os = "iPad";
+  else if (/Android/.test(ua)) os = "Android";
+  else if (/Mac OS X/.test(ua)) os = "Mac";
+  else if (/Windows/.test(ua)) os = "Windows";
+  else if (/Linux/.test(ua)) os = "Linux";
+  let browser = "";
+  if (/Edg\//.test(ua)) browser = "Edge";
+  else if (/OPR\/|Opera/.test(ua)) browser = "Opera";
+  else if (/Chrome\//.test(ua)) browser = "Chrome";
+  else if (/Safari\//.test(ua)) browser = "Safari";
+  else if (/Firefox\//.test(ua)) browser = "Firefox";
+  return browser ? os + " · " + browser : os;
+}
 
 // ─────────── Supabase Auth API ───────────
 
@@ -23,10 +56,10 @@ async function loadProfileFor(authUser){
   // Paraleliza profile + purchases — reduz waterfall sequencial
   const safeProfile = window.safe
     ? window.safe("loadProfileFor", () =>
-        sb.from("profiles").select("id, name, email, role, banned, banned_reason, avatar_url, created_at").eq("id", authUser.id).single(),
+        sb.from("profiles").select("id, name, email, role, banned, banned_reason, avatar_url, created_at, device_fingerprint, device_name").eq("id", authUser.id).single(),
         { data: null, error: null }
       )
-    : sb.from("profiles").select("id, name, email, role, banned, banned_reason, avatar_url, created_at").eq("id", authUser.id).single().catch(e=>({data:null, error:e}));
+    : sb.from("profiles").select("id, name, email, role, banned, banned_reason, avatar_url, created_at, device_fingerprint, device_name").eq("id", authUser.id).single().catch(e=>({data:null, error:e}));
 
   const [res, purchases] = await Promise.all([safeProfile, fetchUserPurchaseIds(authUser.id)]);
 
@@ -182,7 +215,7 @@ function Login({ go, onAuth }){
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true); setErr("");
-    const r = await signIn(email, password, "user");
+    const r = await signIn(email, password);
     setBusy(false);
     if (r.error){
       setErr(r.error);
@@ -190,7 +223,7 @@ function Login({ go, onAuth }){
       return;
     }
     onAuth(r.user);
-    go({ name:"library" });
+    go({ name: r.user.role === "admin" ? "admin" : "library" });
   };
 
   return (
@@ -214,10 +247,6 @@ function Login({ go, onAuth }){
         <button className="btn primary lg" type="submit" disabled={busy} style={{width:"100%", justifyContent:"center", marginTop: 6, opacity: busy?.7:1}}>
           {busy ? "Entrando..." : "Entrar →"}
         </button>
-        <div style={{marginTop: 18, padding: 14, background:"var(--bg)", borderRadius: 12, border:"1px dashed var(--line-strong)", fontSize: 12.5, color:"var(--muted)"}}>
-          <div style={{fontWeight: 700, color:"var(--fg)", marginBottom: 6}}>É admin? <a onClick={()=>go({name:"admin-login"})} style={{color:"var(--primary)", cursor:"pointer"}}>Entrar como admin →</a></div>
-          Suas credenciais são gerenciadas pelo Supabase Auth.
-        </div>
       </form>
     </AuthShell>
   );
@@ -441,52 +470,11 @@ function Signup({ go, onAuth }){
   );
 }
 
-// ─────────── Admin Login ───────────
-function AdminLogin({ go, onAuth }){
-  const [email, setEmail] = useStateAuth("");
-  const [password, setPassword] = useStateAuth("");
-  const [err, setErr] = useStateAuth("");
-  const [busy, setBusy] = useStateAuth(false);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setBusy(true); setErr("");
-    const r = await signIn(email, password, "admin");
-    setBusy(false);
-    if (r.error){ setErr(r.error); return; }
-    onAuth(r.user);
-    go({ name:"admin" });
-  };
-
-  return (
-    <AuthShell
-      kicker="Área restrita · Admin"
-      title="Acesso administrativo."
-      sub="Login exclusivo pra gerenciar resumos e ver histórico de vendas."
-      footer={<>Não é admin? <a onClick={()=>go({name:"login"})} style={{color:"var(--primary)", cursor:"pointer", fontWeight: 600}}>Voltar pra entrada de usuário</a></>}
-    >
-      <form onSubmit={submit}>
-        <Field label="Email do admin">
-          <TextInput type="email" required placeholder="admin@resumosmed.com" value={email} onChange={e=>setEmail(e.target.value)}/>
-        </Field>
-        <Field label="Senha" error={err}>
-          <TextInput type="password" required placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)}/>
-        </Field>
-        <button className="btn primary lg" type="submit" disabled={busy} style={{width:"100%", justifyContent:"center", marginTop: 6, background:"var(--fg)", color:"var(--bg)", borderColor:"var(--fg)", opacity: busy?.7:1}}>
-          {busy ? "Entrando..." : "Entrar como admin →"}
-        </button>
-        <div style={{marginTop: 18, padding: 14, background:"var(--bg)", borderRadius: 12, border:"1px dashed var(--line-strong)", fontSize: 12.5, color:"var(--muted)", lineHeight: 1.55}}>
-          O admin precisa ter sido criado no Supabase Dashboard (<b style={{color:"var(--fg)"}}>Authentication › Users</b>) e ter <b className="mono" style={{color:"var(--fg)"}}>role='admin'</b> na tabela <b className="mono" style={{color:"var(--fg)"}}>profiles</b>.
-        </div>
-      </form>
-    </AuthShell>
-  );
-}
-
 // expose
 Object.assign(window, {
   loadCurrentUser, loadProfileFor, signIn, signUp, signOut, recordPurchase,
   resetPassword, updatePassword,
-  Login, Signup, AdminLogin, ForgotPassword, ResetPassword,
+  generateDeviceFingerprint, getDeviceName,
+  Login, Signup, ForgotPassword, ResetPassword,
   Field, TextInput, AuthShell,
 });

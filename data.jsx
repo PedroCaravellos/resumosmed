@@ -236,6 +236,14 @@ async function acceptTerms(userId){
   return res?.error ? { error: res.error.message } : { ok: true };
 }
 
+async function saveDeviceFingerprint(userId, fingerprint, deviceName){
+  const res = await safe("saveDeviceFingerprint", () =>
+    sb.from("profiles").update({ device_fingerprint: fingerprint, device_name: deviceName }).eq("id", userId),
+    { error: null }
+  );
+  return res?.error ? { error: res.error.message } : { ok: true };
+}
+
 // ─────────── Admin: user management ───────────
 async function fetchUserActivity(){
   const res = await safe("fetchUserActivity", () => sb
@@ -360,7 +368,7 @@ Object.assign(window, {
   fetchUserPurchaseIds, fetchUserPurchases, fetchAllSales, fetchUsersCount,
   createPurchases, getSignedPdfUrl, fetchPendingPaymentStatus,
   normalizeProduct,
-  logEvent, hasAcceptedTerms, acceptTerms,
+  logEvent, hasAcceptedTerms, acceptTerms, saveDeviceFingerprint,
   fetchUserActivity, fetchUserLogs, setUserBan,
   fetchUserTickets, submitSupportTicket, fetchAllTickets, resolveTicket, deleteTicket,
   fetchTicketReplies, addTicketReply,

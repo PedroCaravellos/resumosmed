@@ -7,10 +7,10 @@ Deno.serve(async (req) => {
     return new Response("Method Not Allowed", { status: 405 });
   }
 
-  const webhookSecret = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
+  const webhookSecret = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET") ?? "";
   const accessToken   = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
-  if (!webhookSecret || !accessToken) {
-    console.error("[mp-webhook] Secrets não configurados");
+  if (!accessToken) {
+    console.error("[mp-webhook] MERCADOPAGO_ACCESS_TOKEN não configurado");
     return new Response("Internal Server Error", { status: 500 });
   }
 
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
   console.log("[mp-webhook] sig esperada:", expectedHash);
   console.log("[mp-webhook] manifest:", manifest);
 
-  if (receivedHash && receivedHash !== expectedHash) {
+  if (receivedHash && webhookSecret && receivedHash !== expectedHash) {
     console.warn("[mp-webhook] Assinatura inválida");
     return new Response("Unauthorized", { status: 401 });
   }

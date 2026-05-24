@@ -10,7 +10,7 @@ function AdminDashboard({ go, currentUser, onLogout }){
       <div className="page" style={{paddingTop: 60, paddingBottom: 60, textAlign:"center"}}>
         <div className="display" style={{fontSize: 28, fontWeight: 700, marginBottom: 10}}>Acesso restrito</div>
         <p style={{color:"var(--muted)", marginBottom: 20}}>Você precisa entrar como admin pra ver este painel.</p>
-        <button className="btn primary" onClick={()=>go({name:"admin-login"})}>Entrar como admin</button>
+        <button className="btn primary" onClick={()=>go({name:"login"})}>Entrar</button>
       </div>
     );
   }

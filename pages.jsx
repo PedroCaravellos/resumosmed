@@ -133,52 +133,57 @@ function HeroVisual(){
       area: "Endocrinologia",
       title: "Diabetes Mellitus",
       accent: "var(--primary)",
-      tint: "var(--surface)",
-      border: true,
+      tint: "color-mix(in oklab, var(--acc-4) 28%, var(--surface))",
       tags: [
         { label: "HbA1c", color: "var(--acc-2)" },
         { label: "Insulinas", color: "var(--acc-3)" },
       ],
       highlight: "var(--acc-1)",
+      floatDur: "6s", floatDelay: "0s",
     },
     {
       area: "Cardiologia",
       title: "Insuficiência Cardíaca",
-      accent: "var(--primary)",
-      tint: "color-mix(in oklab, var(--acc-1) 35%, var(--surface))",
-      border: false,
+      accent: "var(--acc-1)",
+      tint: "color-mix(in oklab, var(--acc-1) 50%, var(--surface))",
       tags: [
         { label: "NYHA I-IV", color: "var(--primary)" },
         { label: "ECA/BRA", color: "var(--acc-2)" },
       ],
       highlight: "var(--acc-3)",
+      floatDur: "7.5s", floatDelay: "1.1s",
     },
     {
       area: "Neurologia",
       title: "AVC Isquêmico",
-      accent: "var(--fg)",
-      tint: "color-mix(in oklab, var(--acc-3) 30%, var(--surface))",
-      border: false,
+      accent: "var(--acc-3)",
+      tint: "color-mix(in oklab, var(--acc-3) 50%, var(--surface))",
       tags: [
         { label: "NIHSS", color: "var(--acc-4)" },
         { label: "Trombólise", color: "var(--primary)" },
       ],
       highlight: "var(--acc-2)",
+      floatDur: "9s", floatDelay: "0.5s",
     },
   ];
 
   const [top, setTop] = React.useState(0);
-  const [animating, setAnimating] = React.useState(false);
+  const animRef = React.useRef(false);
   const total = cards.length;
 
-  const cycle = () => {
-    if (animating) return;
-    setAnimating(true);
-    setTop(t => (t + 1) % total);
-    setTimeout(()=>setAnimating(false), 480);
-  };
+  const advance = React.useCallback((targetIndex) => {
+    if (animRef.current) return;
+    animRef.current = true;
+    setTop(typeof targetIndex === "number" ? targetIndex : t => (t + 1) % total);
+    setTimeout(() => { animRef.current = false; }, 480);
+  }, [total]);
 
-  // pos: 0 = topo (na frente), 1 = meio, 2 = fundo
+  // auto-rotação a cada 3s
+  React.useEffect(() => {
+    const id = setInterval(() => advance(), 3000);
+    return () => clearInterval(id);
+  }, [advance]);
+
   const stylesForPos = (pos) => {
     if (pos === 0) return {
       transform: "rotate(-1deg) translateY(0) translateX(0)",
@@ -190,7 +195,6 @@ function HeroVisual(){
       zIndex: 2, opacity: .96, filter: "saturate(.85)",
       inset: "20px 30px 30px 70px",
     };
-    // pos 2
     return {
       transform: "rotate(-5deg) translateY(40px) translateX(-40px)",
       zIndex: 1, opacity: .88, filter: "saturate(.7)",
@@ -202,21 +206,33 @@ function HeroVisual(){
     <div style={{position:"relative", height: 480}}>
       {cards.map((card, i) => {
         const pos = (i - top + total) % total;
-        const posStyles = stylesForPos(pos);
+        const ps = stylesForPos(pos);
         return (
-          <PdfCard
+          // wrapper: posicionamento absoluto + animação de flutuação
+          <div
             key={i}
-            card={card}
             style={{
-              position:"absolute",
-              ...posStyles,
-              background: card.tint,
-              border: card.border ? "1px solid var(--line)" : undefined,
-              transition: "transform .48s cubic-bezier(.2,.7,.1,1), opacity .48s ease, filter .48s ease, inset .48s cubic-bezier(.2,.7,.1,1)",
-              cursor: pos === 0 ? "pointer" : "default",
+              position: "absolute",
+              inset: ps.inset,
+              zIndex: ps.zIndex,
+              opacity: ps.opacity,
+              filter: ps.filter,
+              transition: "inset .48s cubic-bezier(.2,.7,.1,1), opacity .48s ease, filter .48s ease",
+              animation: `float ${card.floatDur} ease-in-out infinite ${card.floatDelay}`,
             }}
-            onClick={pos === 0 ? cycle : undefined}
-          />
+          >
+            <PdfCard
+              card={card}
+              style={{
+                width: "100%", height: "100%", boxSizing: "border-box",
+                background: card.tint,
+                transform: ps.transform,
+                transition: "transform .48s cubic-bezier(.2,.7,.1,1)",
+                cursor: pos === 0 ? "pointer" : "default",
+              }}
+              onClick={pos === 0 ? () => advance() : undefined}
+            />
+          </div>
         );
       })}
 
@@ -225,10 +241,10 @@ function HeroVisual(){
         ★ Leitor protegido
       </div>
 
-      {/* Indicadores embaixo (dots clicáveis pra pular entre cards) */}
+      {/* Dots */}
       <div style={{position:"absolute", bottom: -28, left: "50%", transform:"translateX(-50%)", display:"flex", gap: 5}}>
         {cards.map((_, i) => (
-          <button key={i} onClick={()=>{ if (i !== top){ setAnimating(true); setTop(i); setTimeout(()=>setAnimating(false), 480); }}}
+          <button key={i} onClick={() => advance(i)}
             aria-label={`Mostrar resumo ${i+1}`}
             style={{
               width: i === top ? 22 : 7, height: 7, borderRadius: 999,
@@ -1032,6 +1048,11 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
               </div>
             )}
 
+            <div style={{padding:"12px 14px", background:"color-mix(in oklab, #F59E0B 10%, var(--bg))", borderRadius:10, border:"1px solid color-mix(in oklab, #F59E0B 35%, transparent)", fontSize:13, color:"var(--fg)", marginBottom:14, lineHeight:1.55}}>
+              <strong style={{display:"block", marginBottom:4}}>⚠ Acesso vinculado a um único dispositivo</strong>
+              Após a compra, seus resumos só poderão ser abertos no dispositivo que você usar pela primeira vez na biblioteca. Para trocar de dispositivo será necessário contatar o suporte.
+            </div>
+
             <button className="btn primary lg" style={{width:"100%", justifyContent:"center"}} onClick={checkout} disabled={paying}>
               {paying ? "Redirecionando…" : currentUser ? "Finalizar pagamento →" : "Entrar e finalizar →"}
             </button>
@@ -1171,6 +1192,16 @@ function AccountSettings({ go, currentUser, refreshUser }){
   useEffectP(() => {
     if (!currentUser?.id) return;
     fetchUserTickets(currentUser.id).then(setTickets);
+    // Prefill do ticket vindo da tela de bloqueio de dispositivo
+    const raw = sessionStorage.getItem("ticket_prefill");
+    if (raw) {
+      try {
+        const { subject, message } = JSON.parse(raw);
+        if (subject) setTicketSubject(subject);
+        if (message) setTicketMsg(message);
+      } catch {}
+      sessionStorage.removeItem("ticket_prefill");
+    }
   }, [currentUser?.id]);
 
   if (!currentUser) { go({ name: "login" }); return null; }

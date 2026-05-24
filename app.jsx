@@ -159,7 +159,6 @@ function App(){
     case "signup":      page = <Signup go={go} onAuth={handleAuth}/>; break;
     case "forgot":      page = <ForgotPassword go={go}/>; break;
     case "reset-password": page = <ResetPassword go={go} onAuth={handleAuth}/>; break;
-    case "admin-login": page = <AdminLogin go={go} onAuth={handleAuth}/>; break;
     case "admin":       page = <AdminDashboard go={go} currentUser={currentUser} onLogout={handleLogout}/>; break;
     case "library":     page = <MyLibrary go={go} currentUser={currentUser}/>; break;
     case "payment-return": page = <PaymentReturn go={go} clearCart={clearCart} refreshUser={refreshUser} currentUser={currentUser} cart={cart}/>; break;

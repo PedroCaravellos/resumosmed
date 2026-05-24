@@ -98,8 +98,7 @@ Deno.serve(async (req) => {
       return json({ error: "Erro ao registrar pagamento: " + dbErr.message });
     }
 
-    // sandbox_init_point para teste; init_point para produção
-    const checkoutUrl = mpBody.sandbox_init_point || mpBody.init_point;
+    const checkoutUrl = mpBody.init_point || mpBody.sandbox_init_point;
     return json({ checkoutUrl, chargeId: externalRef });
   } catch (err) {
     console.error("[create-mp-preference] Erro inesperado:", err);
