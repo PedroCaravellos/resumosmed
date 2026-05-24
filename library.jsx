@@ -150,6 +150,8 @@ function PdfReader({ id, go, currentUser }){
 
   useEffectLib(()=>{
     let mounted = true;
+    setLoading(true);
+    setSignedUrl(null);
     (async () => {
       try {
         const prod = await fetchProductById(id);
@@ -171,7 +173,7 @@ function PdfReader({ id, go, currentUser }){
       }
     })();
     return ()=>{ mounted = false; };
-  }, [id, currentUser?.id]);
+  }, [id, currentUser?.id, currentUser?.purchases?.length]);
 
   if (!currentUser) {
     return (
