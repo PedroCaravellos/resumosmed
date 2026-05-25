@@ -299,10 +299,8 @@ function MiniBox({ color, label }){
 function SocialBar(){
   const items = [
     "Leitor online protegido",
-    "Usado em 14 faculdades",
     "Atualizado em Mai/26",
     "Garantia de 7 dias",
-    "Pix · 5% off",
     "Acesso vitalício",
     "Atualizações grátis pra sempre",
   ];
