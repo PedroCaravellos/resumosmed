@@ -810,6 +810,7 @@ function AdminUsers(){
   const [query, setQuery] = useStateAdmin("");
   const [filter, setFilter] = useStateAdmin("all"); // all | flagged | banned
   const [details, setDetails] = useStateAdmin(null);
+  const [libraryUser, setLibraryUser] = useStateAdmin(null);
 
   const reload = async () => {
     setLoading(true);
@@ -931,6 +932,9 @@ function AdminUsers(){
                   <td style={td()} className="mono">{fmt(u.last_event_at)}</td>
                   <td style={{...td(), textAlign:"right"}}>
                     <div className="row" style={{gap: 4, justifyContent:"flex-end"}}>
+                      <IconBtn title="Gerenciar biblioteca" onClick={()=>setLibraryUser(u)}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                      </IconBtn>
                       <IconBtn title="Ver logs" onClick={()=>setDetails(u)}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
                       </IconBtn>
@@ -948,6 +952,7 @@ function AdminUsers(){
       </div>
 
       {details && <UserLogsModal user={details} onClose={()=>setDetails(null)}/>}
+      {libraryUser && <UserLibraryModal user={libraryUser} onClose={()=>setLibraryUser(null)}/>}
     </div>
   );
 }
@@ -1035,6 +1040,152 @@ function UserLogsModal({ user, onClose }){
 
         <div style={{padding:"14px 28px", borderTop:"1px solid var(--line)", fontSize: 12, color:"var(--muted)", display:"flex", justifyContent:"space-between", alignItems:"center"}}>
           <div>Últimos 100 eventos · severidade <span style={{color:"var(--primary)"}}>vermelho = alto</span>, <span style={{color:"var(--acc-1)"}}>amarelo = aviso</span></div>
+          <button className="btn" onClick={onClose}>Fechar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────── User Library Modal ───────────
+function UserLibraryModal({ user, onClose }){
+  const [purchases, setPurchases] = useStateAdmin([]);
+  const [products, setProducts] = useStateAdmin([]);
+  const [loading, setLoading] = useStateAdmin(true);
+  const [selectedId, setSelectedId] = useStateAdmin("");
+  const [busy, setBusy] = useStateAdmin(false);
+  const [err, setErr] = useStateAdmin("");
+  const [revoking, setRevoking] = useStateAdmin(null); // purchaseId being revoked
+
+  useEffectAdmin(()=>{
+    let mounted = true;
+    Promise.all([fetchUserPurchases(user.id), fetchProducts()])
+      .then(([purch, prods]) => {
+        if (!mounted) return;
+        setPurchases(purch || []);
+        setProducts(prods || []);
+        setLoading(false);
+      })
+      .catch(err => { console.error("[library modal]", err); if (mounted) setLoading(false); });
+    const k = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", k);
+    return () => { mounted = false; document.removeEventListener("keydown", k); };
+  }, [user.id]);
+
+  const ownedIds = useMemoAdmin(() => new Set(purchases.map(p => p.product_id)), [purchases]);
+  const available = useMemoAdmin(() => products.filter(p => !ownedIds.has(p.id)), [products, ownedIds]);
+
+  const grant = async () => {
+    if (!selectedId || busy) return;
+    setBusy(true); setErr("");
+    const prod = products.find(p => p.id === selectedId);
+    const r = await adminGrantPurchase(user.id, prod);
+    setBusy(false);
+    if (r.error){ setErr(r.error); return; }
+    setPurchases(prev => [r.purchase, ...prev]);
+    setSelectedId("");
+  };
+
+  const revoke = async (purchaseId) => {
+    setRevoking(purchaseId); setErr("");
+    const r = await adminRevokePurchase(purchaseId);
+    setRevoking(null);
+    if (r.error){ setErr(r.error); return; }
+    setPurchases(prev => prev.filter(p => p.id !== purchaseId));
+  };
+
+  const fmt = (d) => d ? new Date(d).toLocaleDateString("pt-BR", {day:"2-digit", month:"short", year:"numeric"}) : "—";
+
+  return (
+    <div style={{position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,.45)", backdropFilter:"blur(4px)", WebkitBackdropFilter:"blur(4px)", display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"40px 20px", overflowY:"auto", animation:"pageIn .2s ease"}}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{background:"var(--surface)", borderRadius:"var(--radius-lg)", border:"1px solid var(--line)", boxShadow:"var(--shadow-pop)", width:"100%", maxWidth:600, overflow:"hidden", animation:"pageIn .25s cubic-bezier(.2,.7,.1,1)"}}>
+
+        {/* Header */}
+        <div style={{padding:"22px 28px 14px", borderBottom:"1px solid var(--line)", display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:16}}>
+          <div>
+            <div className="mono" style={{fontSize:11, textTransform:"uppercase", letterSpacing:".1em", color:"var(--primary)", marginBottom:6}}>
+              Gerenciar biblioteca
+            </div>
+            <div className="display" style={{fontSize:22, fontWeight:700, lineHeight:1.15}}>{user.name}</div>
+            <div className="mono" style={{fontSize:12, color:"var(--muted)", marginTop:4}}>{user.email}</div>
+          </div>
+          <button onClick={onClose} aria-label="Fechar" style={{width:36, height:36, borderRadius:999, border:"1px solid var(--line)", background:"var(--bg)", color:"var(--fg)", display:"inline-flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0}}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        {/* Add resumo */}
+        <div style={{padding:"18px 28px", borderBottom:"1px solid var(--line)", background:"var(--bg)"}}>
+          <div style={{fontSize:13, fontWeight:700, marginBottom:10, color:"var(--fg)"}}>Adicionar resumo à biblioteca</div>
+          <div className="row" style={{gap:10}}>
+            <select
+              value={selectedId}
+              onChange={e => setSelectedId(e.target.value)}
+              disabled={busy || loading}
+              style={{flex:1, padding:"10px 14px", borderRadius:10, border:"1px solid var(--line-strong)", background:"var(--surface)", color: selectedId ? "var(--fg)" : "var(--muted)", fontFamily:"inherit", fontSize:14, cursor:"pointer", outline:"none"}}
+            >
+              <option value="">— Escolha um resumo —</option>
+              {available.map(p => (
+                <option key={p.id} value={p.id}>{p.title} · R$ {p.price}</option>
+              ))}
+            </select>
+            <button
+              className="btn primary"
+              onClick={grant}
+              disabled={!selectedId || busy}
+              style={{whiteSpace:"nowrap", opacity:(!selectedId || busy) ? .5 : 1}}
+            >
+              {busy ? "Adicionando…" : "Adicionar"}
+            </button>
+          </div>
+          {available.length === 0 && !loading && (
+            <div style={{fontSize:12.5, color:"var(--muted)", marginTop:8}}>
+              {products.length === 0 ? "Nenhum resumo publicado ainda." : "Este usuário já possui todos os resumos disponíveis."}
+            </div>
+          )}
+          {err && (
+            <div style={{marginTop:10, padding:"10px 14px", borderRadius:10, background:"color-mix(in oklab, var(--primary) 10%, var(--bg))", border:"1px solid var(--primary)", fontSize:13, color:"var(--primary)", fontWeight:600}}>
+              {err}
+            </div>
+          )}
+        </div>
+
+        {/* Current library */}
+        <div style={{maxHeight:"50vh", overflowY:"auto"}}>
+          {loading ? (
+            <div style={{padding:40, display:"flex", justifyContent:"center"}}><Spinner size={40}/></div>
+          ) : purchases.length === 0 ? (
+            <div style={{padding:40, textAlign:"center", color:"var(--muted)", fontSize:14}}>
+              Biblioteca vazia — nenhum resumo adquirido ainda.
+            </div>
+          ) : (
+            <>
+              <div style={{padding:"12px 28px 6px", fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:".08em", color:"var(--muted)"}}>{purchases.length} resumo{purchases.length !== 1 ? "s" : ""} na biblioteca</div>
+              {purchases.map(p => (
+                <div key={p.id} className="row" style={{gap:14, padding:"12px 28px", borderBottom:"1px solid var(--line)", alignItems:"center"}}>
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{fontWeight:600, fontSize:14, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{p.product_title}</div>
+                    <div className="mono" style={{fontSize:11, color:"var(--muted)", marginTop:2}}>
+                      {p.method === "Admin" ? <span style={{color:"var(--acc-3)", fontWeight:700}}>★ Concedido pelo admin</span> : `R$ ${p.price} · ${p.method}`}
+                      {" · "}{fmt(p.created_at)}
+                    </div>
+                  </div>
+                  <button
+                    className="btn"
+                    onClick={() => revoke(p.id)}
+                    disabled={revoking === p.id}
+                    style={{fontSize:12, padding:"6px 12px", color:"var(--primary)", borderColor:"var(--primary)", flexShrink:0, opacity: revoking === p.id ? .5 : 1}}
+                  >
+                    {revoking === p.id ? "…" : "Remover"}
+                  </button>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+
+        <div style={{padding:"14px 28px", borderTop:"1px solid var(--line)", display:"flex", justifyContent:"flex-end"}}>
           <button className="btn" onClick={onClose}>Fechar</button>
         </div>
       </div>

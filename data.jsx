@@ -297,6 +297,32 @@ async function fetchPendingPaymentStatus(chargeId){
   return res?.data?.status || null;
 }
 
+// ─────────── Admin: library management ───────────
+async function adminGrantPurchase(userId, product){
+  const res = await safe("adminGrantPurchase", () =>
+    sb.from("purchases").insert({
+      user_id: userId,
+      product_id: product.id,
+      product_title: product.title,
+      price: 0,
+      method: "Admin",
+    }).select().single(),
+    { data: null, error: { message: "timeout" } }
+  );
+  if (res?.error) return { error: res.error.message };
+  return { purchase: res.data };
+}
+
+async function adminRevokePurchase(purchaseId){
+  const res = await safe("adminRevokePurchase", () =>
+    sb.from("purchases").delete().eq("id", purchaseId).select("id"),
+    { error: { message: "timeout" } }
+  );
+  if (res?.error) return { error: res.error.message };
+  if (!res?.data?.length) return { error: "Sem permissão para remover. Verifique a RLS policy de DELETE em purchases." };
+  return { ok: true };
+}
+
 // ─────────── Support Tickets ───────────
 async function fetchUserTickets(userId){
   if (!userId) return [];
@@ -383,6 +409,7 @@ Object.assign(window, {
   normalizeProduct,
   logEvent, hasAcceptedTerms, acceptTerms, saveDeviceFingerprint,
   fetchUserActivity, fetchUserLogs, setUserBan,
+  adminGrantPurchase, adminRevokePurchase,
   fetchUserTickets, submitSupportTicket, fetchAllTickets, resolveTicket, deleteTicket,
   fetchTicketReplies, addTicketReply,
   Q_TIMEOUT, queryWithTimeout, safe,
