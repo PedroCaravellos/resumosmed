@@ -55,10 +55,6 @@ function Hero({ go, copy }){
 
       <div className="page hero-grid" style={{position:"relative", display:"grid", gridTemplateColumns:"1.15fr .85fr", gap: 56, alignItems:"center"}}>
         <div data-hero-stagger>
-          <div className="pill" style={{marginBottom: 22}}>
-            <span className="blink"/>
-            <span>{copy.eyebrow}</span>
-          </div>
           <h1 className="display" style={{fontSize: "clamp(46px, 7.6vw, 104px)", margin: 0, marginBottom: 22, fontWeight: 700}}>
             {copy.title[0]}<br/>
             <span style={{position:"relative", display:"inline-block"}}>
