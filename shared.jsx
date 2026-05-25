@@ -173,6 +173,8 @@ function Logo({ size = 24 }){
 // ─────────── Nav ───────────
 function Nav({ route, go, cartCount, dark, toggleDark, currentUser, authReady, onLogout }){
   const [menuOpen, setMenuOpen] = React.useState(false);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const navGo = (page) => { setMobileOpen(false); go(page); };
   React.useEffect(()=>{
     const close = ()=>setMenuOpen(false);
     if (menuOpen) document.addEventListener("click", close);
@@ -180,13 +182,13 @@ function Nav({ route, go, cartCount, dark, toggleDark, currentUser, authReady, o
   }, [menuOpen]);
   const isAdmin = currentUser?.role === "admin";
 
-  return (
+  return (<>
     <header style={{position:"sticky", top: 0, zIndex: 50, backdropFilter:"saturate(160%) blur(14px)", WebkitBackdropFilter:"saturate(160%) blur(14px)", background:"color-mix(in oklab, var(--bg) 78%, transparent)", borderBottom:"1px solid var(--line)"}}>
       <div className="page" style={{display:"flex", alignItems:"center", justifyContent:"space-between", padding: "14px 0", gap: 18}}>
         <button onClick={()=>go({name:"landing"})} style={{background:"none", border:0, padding:0, cursor:"pointer"}}>
           <Logo size={26}/>
         </button>
-        <nav style={{display:"flex", alignItems:"center", gap: 28, fontSize: 14, fontWeight: 500, color:"var(--muted)"}}>
+        <nav className="nav-links" style={{display:"flex", alignItems:"center", gap: 28, fontSize: 14, fontWeight: 500, color:"var(--muted)"}}>
           <button onClick={()=>go({name:"landing"})} style={navLink(route.name==="landing")}>Início</button>
           <button onClick={()=>go({name:"catalog"})} style={navLink(route.name==="catalog")}>Catálogo</button>
           <button onClick={()=>go({name:"landing", anchor:"como-funciona"})} style={navLink(false)}>Como funciona</button>
@@ -196,49 +198,97 @@ function Nav({ route, go, cartCount, dark, toggleDark, currentUser, authReady, o
           {isAdmin && <button onClick={()=>go({name:"library"})} style={navLink(route.name==="library")}>Biblioteca</button>}
         </nav>
         <div style={{display:"flex", gap: 10, alignItems:"center"}}>
-          <DarkToggle dark={dark} onClick={toggleDark}/>
+          <div className="nav-hide-mobile" style={{display:"flex", alignItems:"center"}}>
+            <DarkToggle dark={dark} onClick={toggleDark}/>
+          </div>
           <button className="btn" onClick={()=>go({name:"cart"})} style={{position:"relative"}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>
             {cartCount > 0 && <span style={{background:"var(--primary)", color:"var(--primary-ink)", borderRadius:999, padding:"1px 7px", fontSize: 11, fontWeight: 700}}>{cartCount}</span>}
           </button>
-          {!authReady ? (
-            <div style={{width: 80, height: 36, borderRadius: 999, background: "var(--line)", opacity: .5}} />
-          ) : currentUser ? (
-            <div style={{position:"relative"}} onClick={(e)=>e.stopPropagation()}>
-              <button className="btn" onClick={()=>setMenuOpen(o=>!o)} style={{paddingLeft: 6}}>
-                <div style={{width: 26, height: 26, borderRadius: 999, background: isAdmin ? "var(--fg)" : "var(--acc-3)", color: isAdmin ? "var(--bg)" : "var(--fg)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight: 700, fontSize: 12}}>
-                  {currentUser.name[0]?.toUpperCase()}
-                </div>
-                <span style={{maxWidth: 100, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{currentUser.name.split(" ")[0]}</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 9l6 6 6-6"/></svg>
-              </button>
-              {menuOpen && (
-                <div style={{position:"absolute", top:"calc(100% + 6px)", right: 0, background:"var(--surface)", border:"1px solid var(--line)", borderRadius: 12, boxShadow:"var(--shadow-pop)", minWidth: 220, padding: 6, zIndex: 60}}>
-                  <div style={{padding:"10px 12px", borderBottom:"1px solid var(--line)", marginBottom: 4}}>
-                    <div style={{fontWeight: 600, fontSize: 13}}>{currentUser.name}</div>
-                    <div className="mono" style={{fontSize: 11, color:"var(--muted)"}}>{currentUser.email}</div>
-                    {isAdmin && <div className="mono" style={{fontSize: 10, color:"var(--primary)", marginTop: 4, textTransform:"uppercase", letterSpacing:".08em", fontWeight: 700}}>★ admin</div>}
+          <div className="nav-hide-mobile" style={{display:"flex", gap:10, alignItems:"center"}}>
+            {!authReady ? (
+              <div style={{width: 80, height: 36, borderRadius: 999, background: "var(--line)", opacity: .5}} />
+            ) : currentUser ? (
+              <div style={{position:"relative"}} onClick={(e)=>e.stopPropagation()}>
+                <button className="btn" onClick={()=>setMenuOpen(o=>!o)} style={{paddingLeft: 6}}>
+                  <div style={{width: 26, height: 26, borderRadius: 999, background: isAdmin ? "var(--fg)" : "var(--acc-3)", color: isAdmin ? "var(--bg)" : "var(--fg)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight: 700, fontSize: 12}}>
+                    {currentUser.name[0]?.toUpperCase()}
                   </div>
-                  {!isAdmin && <MenuItem onClick={()=>{setMenuOpen(false); go({name:"library"});}}>Minha biblioteca</MenuItem>}
-                  {isAdmin && <MenuItem onClick={()=>{setMenuOpen(false); go({name:"admin"});}}>Painel admin</MenuItem>}
-                  {isAdmin && <MenuItem onClick={()=>{setMenuOpen(false); go({name:"library"});}}>Biblioteca de revisão</MenuItem>}
-                  <MenuItem onClick={()=>{setMenuOpen(false); go({name:"catalog"});}}>Ver catálogo</MenuItem>
-                  <MenuItem onClick={()=>{setMenuOpen(false); go({name:"profile"});}}>Configurações da conta</MenuItem>
-                  <div style={{borderTop:"1px solid var(--line)", margin:"4px 0"}}/>
-                  <MenuItem onClick={()=>{setMenuOpen(false); onLogout();}} danger>Sair</MenuItem>
-                </div>
-              )}
-            </div>
-          ) : (
-            <>
-              <button className="btn ghost" onClick={()=>go({name:"login"})} style={{padding:"10px 14px"}}>Entrar</button>
-              <button className="btn primary" onClick={()=>go({name:"signup"})}>Criar conta</button>
-            </>
-          )}
+                  <span style={{maxWidth: 100, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{currentUser.name.split(" ")[0]}</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                {menuOpen && (
+                  <div style={{position:"absolute", top:"calc(100% + 6px)", right: 0, background:"var(--surface)", border:"1px solid var(--line)", borderRadius: 12, boxShadow:"var(--shadow-pop)", minWidth: 220, padding: 6, zIndex: 60}}>
+                    <div style={{padding:"10px 12px", borderBottom:"1px solid var(--line)", marginBottom: 4}}>
+                      <div style={{fontWeight: 600, fontSize: 13}}>{currentUser.name}</div>
+                      <div className="mono" style={{fontSize: 11, color:"var(--muted)"}}>{currentUser.email}</div>
+                      {isAdmin && <div className="mono" style={{fontSize: 10, color:"var(--primary)", marginTop: 4, textTransform:"uppercase", letterSpacing:".08em", fontWeight: 700}}>★ admin</div>}
+                    </div>
+                    {!isAdmin && <MenuItem onClick={()=>{setMenuOpen(false); go({name:"library"});}}>Minha biblioteca</MenuItem>}
+                    {isAdmin && <MenuItem onClick={()=>{setMenuOpen(false); go({name:"admin"});}}>Painel admin</MenuItem>}
+                    {isAdmin && <MenuItem onClick={()=>{setMenuOpen(false); go({name:"library"});}}>Biblioteca de revisão</MenuItem>}
+                    <MenuItem onClick={()=>{setMenuOpen(false); go({name:"catalog"});}}>Ver catálogo</MenuItem>
+                    <MenuItem onClick={()=>{setMenuOpen(false); go({name:"profile"});}}>Configurações da conta</MenuItem>
+                    <div style={{borderTop:"1px solid var(--line)", margin:"4px 0"}}/>
+                    <MenuItem onClick={()=>{setMenuOpen(false); onLogout();}} danger>Sair</MenuItem>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <button className="btn ghost" onClick={()=>go({name:"login"})} style={{padding:"10px 14px"}}>Entrar</button>
+                <button className="btn primary" onClick={()=>go({name:"signup"})}>Criar conta</button>
+              </>
+            )}
+          </div>
+          <button
+            className="nav-hamburger"
+            style={{display:"none", alignItems:"center", justifyContent:"center", width:42, height:42, borderRadius:999, border:"1px solid var(--line)", background:"var(--surface)", cursor:"pointer", color:"var(--fg)", flexShrink:0}}
+            onClick={()=>setMobileOpen(o=>!o)}
+            aria-label="Menu"
+          >
+            {mobileOpen
+              ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            }
+          </button>
         </div>
       </div>
     </header>
-  );
+    {mobileOpen && (
+      <div style={{position:"fixed", inset:0, top:61, background:"var(--bg)", zIndex:49, display:"flex", flexDirection:"column", overflowY:"auto"}}>
+        {[
+          {label:"Início", page:{name:"landing"}},
+          {label:"Catálogo", page:{name:"catalog"}},
+          {label:"Como funciona", page:{name:"landing", anchor:"como-funciona"}},
+          {label:"FAQ", page:{name:"landing", anchor:"faq"}},
+          ...(currentUser && !isAdmin ? [{label:"Biblioteca", page:{name:"library"}}] : []),
+          ...(isAdmin ? [{label:"Painel admin", page:{name:"admin"}}, {label:"Biblioteca", page:{name:"library"}}] : []),
+        ].map(({label, page})=>(
+          <button key={label} onClick={()=>navGo(page)} style={{textAlign:"left", background:"none", border:0, borderBottom:"1px solid var(--line)", padding:"18px var(--pad-page)", fontSize:17, fontWeight:600, color:"var(--fg)", cursor:"pointer", fontFamily:"inherit"}}>
+            {label}
+          </button>
+        ))}
+        <div style={{padding:"24px var(--pad-page)", display:"flex", flexDirection:"column", gap:10}}>
+          <div style={{display:"flex", alignItems:"center", gap:12, marginBottom:8}}>
+            <DarkToggle dark={dark} onClick={toggleDark}/>
+            <span style={{fontSize:14, color:"var(--muted)"}}>{dark ? "Modo escuro" : "Modo claro"}</span>
+          </div>
+          {authReady && (currentUser ? (
+            <>
+              <button className="btn" onClick={()=>navGo({name:"profile"})} style={{width:"100%", justifyContent:"center"}}>Minha conta</button>
+              <button className="btn ghost" onClick={()=>{setMobileOpen(false); onLogout();}} style={{width:"100%", justifyContent:"center"}}>Sair</button>
+            </>
+          ) : (
+            <>
+              <button className="btn ghost" onClick={()=>navGo({name:"login"})} style={{width:"100%", justifyContent:"center", padding:"12px 14px"}}>Entrar</button>
+              <button className="btn primary" onClick={()=>navGo({name:"signup"})} style={{width:"100%", justifyContent:"center"}}>Criar conta</button>
+            </>
+          ))}
+        </div>
+      </div>
+    )}
+  </>);
 }
 
 function MenuItem({ children, onClick, danger }){

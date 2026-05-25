@@ -113,7 +113,7 @@ function StatItem({ n, label }){
 
 function FloatingDecor(){
   return (
-    <div aria-hidden style={{position:"absolute", inset: 0, pointerEvents:"none"}}>
+    <div className="floating-decor" aria-hidden style={{position:"absolute", inset: 0, pointerEvents:"none"}}>
       <div style={{position:"absolute", top:"8%", left:"-2%", animation:"float 6s ease-in-out infinite"}}>
         <Illu.Cross size={56} color="var(--acc-1)"/>
       </div>
