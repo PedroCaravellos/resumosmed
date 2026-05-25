@@ -203,6 +203,26 @@ function TextInput(props){
     />
   );
 }
+function PasswordInput(props){
+  const [show, setShow] = React.useState(false);
+  return (
+    <div style={{position:"relative", display:"flex", alignItems:"center"}}>
+      <TextInput {...props} type={show ? "text" : "password"} style={{width:"100%", paddingRight: 44, ...props.style}}/>
+      <button
+        type="button"
+        onClick={()=>setShow(s=>!s)}
+        style={{position:"absolute", right: 12, background:"none", border:0, cursor:"pointer", color:"var(--muted)", padding:4, display:"flex", alignItems:"center"}}
+        tabIndex={-1}
+        aria-label={show ? "Ocultar senha" : "Mostrar senha"}
+      >
+        {show
+          ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        }
+      </button>
+    </div>
+  );
+}
 
 // ─────────── Login ───────────
 function Login({ go, onAuth }){
@@ -238,7 +258,7 @@ function Login({ go, onAuth }){
           <TextInput type="email" required placeholder="voce@email.com" value={email} onChange={e=>setEmail(e.target.value)}/>
         </Field>
         <Field label="Senha" error={err}>
-          <TextInput type="password" required placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)}/>
+          <PasswordInput required placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)}/>
         </Field>
         <div className="row between" style={{marginBottom: 14, marginTop: -4}}>
           <a onClick={()=>go({name:"forgot"})} style={{color:"var(--primary)", cursor:"pointer", fontWeight: 600, fontSize: 13}}>Esqueci minha senha</a>
@@ -400,10 +420,10 @@ function ResetPassword({ go, onAuth }){
     <AuthShell kicker="Nova senha" title="Crie uma nova senha." sub="Escolhe uma senha forte que você vai lembrar.">
       <form onSubmit={submit}>
         <Field label="Nova senha" hint="Mínimo 8 caracteres, incluindo 1 número.">
-          <TextInput type="password" required placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)}/>
+          <PasswordInput required placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)}/>
         </Field>
         <Field label="Confirme a senha" error={err}>
-          <TextInput type="password" required placeholder="••••••••" value={confirm} onChange={e=>setConfirm(e.target.value)}/>
+          <PasswordInput required placeholder="••••••••" value={confirm} onChange={e=>setConfirm(e.target.value)}/>
         </Field>
         <button className="btn primary lg" type="submit" disabled={busy} style={{width:"100%", justifyContent:"center", marginTop: 6, opacity: busy?.7:1}}>
           {busy ? "Salvando..." : "Salvar nova senha →"}
@@ -457,7 +477,7 @@ function Signup({ go, onAuth }){
           <TextInput type="email" required placeholder="voce@email.com" value={form.email} onChange={upd("email")}/>
         </Field>
         <Field label="Senha" hint="Mínimo 8 caracteres, incluindo pelo menos 1 número." error={err}>
-          <TextInput type="password" required placeholder="••••••••" value={form.password} onChange={upd("password")}/>
+          <PasswordInput required placeholder="••••••••" value={form.password} onChange={upd("password")}/>
         </Field>
         <button className="btn primary lg" type="submit" disabled={busy} style={{width:"100%", justifyContent:"center", marginTop: 6, opacity: busy?.7:1}}>
           {busy ? "Criando..." : "Criar conta →"}
