@@ -491,7 +491,7 @@ function Pricing({ go }){
             {p.highlight && !p.soon && <div style={{position:"absolute", top:-10, left: 22, background:"var(--primary)", color:"var(--primary-ink)", padding:"3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing:".05em"}}>MAIS POPULAR</div>}
             {p.soon && <div style={{position:"absolute", top:-10, left: 22, background:"var(--fg)", color:"var(--bg)", padding:"3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing:".05em"}}>EM BREVE</div>}
             <div className="display" style={{fontSize: 22, fontWeight: 700}}>{p.name}</div>
-            <div className="display" style={{fontSize: p.soon ? 24 : 40, fontWeight: 700, color: p.soon ? "var(--muted)" : "var(--primary)", lineHeight: 1}}>{p.price}</div>
+            <div className={"display pricing-price"} style={{fontSize: p.soon ? 24 : 40, fontWeight: 700, color: p.soon ? "var(--muted)" : "var(--primary)", lineHeight: 1}}>{p.price}</div>
             <div style={{color:"var(--muted)", fontSize: 14, lineHeight: 1.5}}>{p.desc}</div>
             <ul style={{listStyle:"none", padding: 0, margin:"10px 0", display:"flex", flexDirection:"column", gap: 8, fontSize: 14}}>
               {p.feats.map(f=><li key={f} className="row" style={{gap: 8}}><span style={{color:"var(--acc-2)", fontWeight: 700}}>✓</span>{f}</li>)}
@@ -624,6 +624,7 @@ function Catalog({ go, addToCart, cart, initialFilter }){
                 value={query}
                 onChange={e=>setQuery(e.target.value)}
                 placeholder="Buscar resumo ou tópico..."
+                className="catalog-search"
                 style={{padding:"12px 16px 12px 40px", borderRadius: 999, border:"1px solid var(--line)", background:"var(--surface)", color:"var(--fg)", fontFamily:"inherit", fontSize: 14, width: 260, outline:"none"}}
               />
             </div>
@@ -773,7 +774,7 @@ function Product({ id, go, addToCart, cart }){
           </div>
 
           {/* Right: details */}
-          <div style={{position:"sticky", top: 96}}>
+          <div className="product-sticky" style={{position:"sticky", top: 96}}>
             <div className="row" style={{gap: 8, marginBottom: 18}}>
               <span className="pill" style={{background:"var(--acc-2)", borderColor:"transparent", color:"var(--fg)"}}>
                 <span>★</span> Atualizado em {r.updated}
@@ -804,7 +805,7 @@ function Product({ id, go, addToCart, cart }){
 
             <div className="card" style={{padding: 18, marginBottom: 18}}>
               <div className="display" style={{fontSize: 16, fontWeight: 600, marginBottom: 12}}>O que está dentro</div>
-              <div style={{display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap: 8}}>
+              <div className="topics-grid" style={{display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap: 8}}>
                 {r.topics.map(t=>(
                   <div key={t} className="row" style={{gap: 8, fontSize: 14}}>
                     <span style={{color:"var(--primary)", fontWeight: 700}}>›</span>{t}
@@ -965,7 +966,7 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
           <button className="btn primary" onClick={()=>go({name:"catalog"})}>Ver catálogo</button>
         </div>
       ) : (
-        <div style={{display:"grid", gridTemplateColumns:"1.5fr 1fr", gap: 32, marginTop: 32}}>
+        <div className="cart-grid" style={{display:"grid", gridTemplateColumns:"1.5fr 1fr", gap: 32, marginTop: 32}}>
           <div className="col" style={{gap: 12}}>
             {cart.map(r => {
               const area = AREAS.find(a=>a.id===r.area) || AREAS[0];
@@ -987,7 +988,7 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
             })}
           </div>
 
-          <div className="card" style={{padding: 24, height:"fit-content", position:"sticky", top: 96}}>
+          <div className="card product-sticky" style={{padding: 24, height:"fit-content", position:"sticky", top: 96}}>
             <div className="display" style={{fontSize: 18, fontWeight: 700, marginBottom: 14}}>Resumo</div>
             <div style={{borderTop:"1px solid var(--line)", margin:"14px 0"}}/>
             <div className="row between" style={{marginBottom: 18}}>

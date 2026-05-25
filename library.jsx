@@ -546,7 +546,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
       userSelect:"none", WebkitUserSelect:"none", MozUserSelect:"none",
     }}>
       {/* Top bar */}
-      <header style={{
+      <header className="reader-toolbar" style={{
         display:"flex", alignItems:"center", justifyContent:"space-between", gap: 16,
         padding:"14px 24px",
         borderBottom:"1px solid var(--line)",
@@ -733,7 +733,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
       </div>
 
       {/* Bottom pager — esconde durante carregamento do PDF pra não mostrar 0/0 */}
-      {pagerReady && <footer style={{
+      {pagerReady && <footer className="reader-toolbar" style={{
         flex:"0 0 auto",
         padding:"12px 24px",
         borderTop:"1px solid var(--line)",
@@ -760,8 +760,8 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
           </div>
         )}
         <div className="row" style={{gap: 8}}>
-          <button className="btn" disabled={page===0} onClick={()=>setPage(p=>Math.max(0,p-1))} style={{opacity: page===0?.4:1}}>← Anterior</button>
-          <button className="btn primary" disabled={page===total-1} onClick={()=>setPage(p=>Math.min(total-1, p+1))} style={{opacity: page===total-1?.4:1}}>Próxima →</button>
+          <button className="btn reader-nav-btn" disabled={page===0} onClick={()=>setPage(p=>Math.max(0,p-1))} style={{opacity: page===0?.4:1}}>← Anterior</button>
+          <button className="btn primary reader-nav-btn" disabled={page===total-1} onClick={()=>setPage(p=>Math.min(total-1, p+1))} style={{opacity: page===total-1?.4:1}}>Próxima →</button>
         </div>
       </footer>}
 

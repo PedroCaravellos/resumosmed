@@ -150,7 +150,7 @@ function traduzirErro(msg){
 function AuthShell({ children, kicker, title, sub, footer }){
   return (
     <div className="pagewrap" style={{minHeight:"calc(100vh - 80px)", display:"flex", alignItems:"center", justifyContent:"center", padding: "60px 24px"}}>
-      <div style={{width:"100%", maxWidth: 1080, display:"grid", gridTemplateColumns:"1fr 1fr", gap: 0, background:"var(--surface)", border:"1px solid var(--line)", borderRadius:"var(--radius-lg)", overflow:"hidden", boxShadow:"var(--shadow-card)"}}>
+      <div className="auth-shell-grid" style={{width:"100%", maxWidth: 1080, display:"grid", gridTemplateColumns:"1fr 1fr", gap: 0, background:"var(--surface)", border:"1px solid var(--line)", borderRadius:"var(--radius-lg)", overflow:"hidden", boxShadow:"var(--shadow-card)"}}>
         <div style={{padding:"clamp(32px, 4vw, 56px)", display:"flex", flexDirection:"column", justifyContent:"center"}}>
           <div className="mono" style={{fontSize: 11, textTransform:"uppercase", letterSpacing:".1em", color:"var(--primary)", marginBottom: 14}}>{kicker}</div>
           <h1 className="display" style={{fontSize:"clamp(34px, 4vw, 48px)", fontWeight: 700, margin: 0, lineHeight: 1.05}}>{title}</h1>
@@ -158,7 +158,7 @@ function AuthShell({ children, kicker, title, sub, footer }){
           <div style={{marginTop: 28}}>{children}</div>
           {footer && <div style={{marginTop: 22, fontSize: 14, color:"var(--muted)"}}>{footer}</div>}
         </div>
-        <div style={{background:"var(--bg)", position:"relative", overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", padding: 40, borderLeft:"1px solid var(--line)"}}>
+        <div className="auth-decor" style={{background:"var(--bg)", position:"relative", overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center", padding: 40, borderLeft:"1px solid var(--line)"}}>
           <div aria-hidden style={{position:"absolute", inset: 0, opacity:.6}}>
             <div style={{position:"absolute", top:"10%", left:"15%", animation:"float 6s ease-in-out infinite"}}><Illu.Cross size={60}/></div>
             <div style={{position:"absolute", top:"55%", left:"8%", animation:"float 7s ease-in-out infinite .8s"}}><Illu.Pill size={48} color="var(--acc-1)" bg="var(--fg)"/></div>

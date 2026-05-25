@@ -398,7 +398,7 @@ function Footer({ go }){
           </div>
         </div>
       </div>
-      <div className="page" style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginTop: 40, paddingTop: 20, borderTop:"1px solid var(--line)", color:"var(--muted)", fontSize: 12}}>
+      <div className="footer-copy page" style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginTop: 40, paddingTop: 20, borderTop:"1px solid var(--line)", color:"var(--muted)", fontSize: 12}}>
         <div>© 2026 resumosmed — Feito entre uma aula de fisio e outra.</div>
         <div className="mono">v1.0 · Atualizado em Mai 26</div>
       </div>
