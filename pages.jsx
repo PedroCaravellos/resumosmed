@@ -592,7 +592,7 @@ function Catalog({ go, addToCart, cart, initialFilter, currentUser }){
   const owned = useMemoP(()=> new Set(currentUser?.purchases || []), [currentUser?.purchases]);
 
   const list = useMemoP(()=>{
-    let r = products.filter(x => !owned.has(x.id));
+    let r = products.slice();
     if (filter !== "all") r = r.filter(x=>x.area === filter);
     if (query) r = r.filter(x => (x.title + " " + (x.topics||[]).join(" ")).toLowerCase().includes(query.toLowerCase()));
     if (sort==="price-low") r.sort((a,b)=>a.price-b.price);
@@ -669,7 +669,7 @@ function Catalog({ go, addToCart, cart, initialFilter, currentUser }){
         ) : (
           <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(260px, 1fr))", gap: 16}}>
             {list.map(r => (
-              <ResumoCard key={r.id} r={r} go={go} addToCart={addToCart} cart={cart}/>
+              <ResumoCard key={r.id} r={r} go={go} addToCart={addToCart} cart={cart} isOwned={owned.has(r.id)}/>
             ))}
           </div>
         )}
@@ -678,7 +678,7 @@ function Catalog({ go, addToCart, cart, initialFilter, currentUser }){
   );
 }
 
-function ResumoCard({ r, go, addToCart, cart }){
+function ResumoCard({ r, go, addToCart, cart, isOwned }){
   const area = AREAS.find(a=>a.id===r.area) || { name: r.area };
   const I = ILLU_FOR_AREA[r.area] || Illu.Cross;
   const inCart = cart?.some(c=>c.id===r.id);
@@ -702,9 +702,15 @@ function ResumoCard({ r, go, addToCart, cart }){
       </div>
       <div className="row between" style={{marginTop:"auto", paddingTop: 8}}>
         <div className="display" style={{fontSize: 22, fontWeight: 700, color:"var(--fg)"}}>R$ {r.price}</div>
-        <button onClick={(e)=>{e.stopPropagation(); addToCart(r);}} className={"btn " + (inCart ? "" : "primary")} style={{padding:"8px 14px", fontSize: 13}}>
-          {inCart ? "No carrinho ✓" : "+ Adicionar"}
-        </button>
+        {isOwned ? (
+          <button disabled onClick={e=>e.stopPropagation()} className="btn" style={{padding:"8px 14px", fontSize: 13, opacity:.5, cursor:"default"}}>
+            ✓ Já possuído
+          </button>
+        ) : (
+          <button onClick={(e)=>{e.stopPropagation(); addToCart(r);}} className={"btn " + (inCart ? "" : "primary")} style={{padding:"8px 14px", fontSize: 13}}>
+            {inCart ? "No carrinho ✓" : "+ Adicionar"}
+          </button>
+        )}
       </div>
     </div>
   );
