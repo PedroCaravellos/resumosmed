@@ -329,6 +329,9 @@ function AdminProducts({ go }){
   const [products, setProducts] = useStateAdmin([]);
   const [loading, setLoading] = useStateAdmin(true);
   const [editing, setEditing] = useStateAdmin(null);
+  const [confirmDelete, setConfirmDelete] = useStateAdmin(null); // { id, title }
+  const [deleting, setDeleting] = useStateAdmin(false);
+  const [deleteErr, setDeleteErr] = useStateAdmin("");
 
   const reload = () => fetchProducts().then(p => setProducts(p)).catch(err => console.error("[admin/products reload]", err));
 
@@ -340,11 +343,15 @@ function AdminProducts({ go }){
     return ()=>{ mounted = false; };
   }, []);
 
-  const remove = async (id) => {
-    if (!confirm("Ocultar este resumo do catálogo? Ele não será deletado do banco — quem já comprou continua acessando normalmente.")) return;
-    const r = await deleteProduct(id);
-    if (r.error){ alert("Erro ao remover: " + r.error); return; }
-    setProducts(prev => prev.filter(p=>p.id!==id));
+  const remove = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    setDeleteErr("");
+    const r = await deleteProduct(confirmDelete.id);
+    setDeleting(false);
+    if (r.error){ setDeleteErr(r.error); return; }
+    setProducts(prev => prev.filter(p=>p.id!==confirmDelete.id));
+    setConfirmDelete(null);
   };
 
   const onSaved = (updated) => {
@@ -404,7 +411,7 @@ function AdminProducts({ go }){
                       <IconBtn title="Ver na loja" onClick={()=>go({name:"product", id:p.id})}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                       </IconBtn>
-                      <IconBtn title="Remover" onClick={()=>remove(p.id)} danger>
+                      <IconBtn title="Remover" onClick={()=>{ setConfirmDelete({id:p.id, title:p.title}); setDeleteErr(""); }} danger>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                       </IconBtn>
                     </div>
@@ -417,6 +424,35 @@ function AdminProducts({ go }){
         )}
       </div>
       {editing && <EditProductModal product={editing} onClose={()=>setEditing(null)} onSaved={onSaved}/>}
+
+      {confirmDelete && (
+        <div style={{position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,.45)", backdropFilter:"blur(4px)", WebkitBackdropFilter:"blur(4px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px"}}
+          onClick={(e)=>{ if (e.target===e.currentTarget && !deleting) setConfirmDelete(null); }}>
+          <div style={{background:"var(--surface)", borderRadius:"var(--radius-lg)", border:"1px solid var(--line)", boxShadow:"var(--shadow-pop)", width:"100%", maxWidth:440, padding:28, animation:"pageIn .2s cubic-bezier(.2,.7,.1,1)"}}>
+            <div style={{width:44, height:44, borderRadius:12, background:"color-mix(in oklab, var(--primary) 12%, var(--surface))", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:16}}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            </div>
+            <div className="display" style={{fontSize:20, fontWeight:700, marginBottom:6}}>Ocultar resumo?</div>
+            <div style={{fontSize:14, color:"var(--muted)", lineHeight:1.6, marginBottom:6}}>
+              <b style={{color:"var(--fg)"}}>{confirmDelete.title}</b> vai desaparecer do catálogo.
+            </div>
+            <div style={{fontSize:13, color:"var(--muted)", lineHeight:1.6, marginBottom:20}}>
+              O arquivo não é deletado — quem já comprou continua acessando normalmente.
+            </div>
+            {deleteErr && (
+              <div style={{padding:"10px 14px", borderRadius:10, background:"color-mix(in oklab, var(--primary) 10%, var(--bg))", border:"1px solid var(--primary)", fontSize:13, color:"var(--primary)", fontWeight:600, marginBottom:16}}>
+                {deleteErr}
+              </div>
+            )}
+            <div className="row" style={{gap:10, justifyContent:"flex-end"}}>
+              <button className="btn" onClick={()=>setConfirmDelete(null)} disabled={deleting}>Cancelar</button>
+              <button className="btn primary" onClick={remove} disabled={deleting} style={{opacity:deleting?.7:1}}>
+                {deleting ? "Ocultando…" : "Sim, ocultar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
