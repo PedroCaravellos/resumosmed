@@ -835,14 +835,9 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
 
 function TermsModal({ user, onAccept, onDecline }){
   const [checked, setChecked] = useStateLib(false);
-  const [busy, setBusy] = useStateLib(false);
 
-  const accept = async () => {
+  const accept = () => {
     if (!checked) return;
-    setBusy(true);
-    const r = await acceptTerms(user.id);
-    setBusy(false);
-    if (r.error){ alert("Erro ao registrar aceite: " + r.error); return; }
     onAccept();
   };
 
@@ -897,9 +892,9 @@ function TermsModal({ user, onAccept, onDecline }){
         </div>
 
         <div style={{padding:"16px 30px", borderTop:"1px solid var(--line)", display:"flex", justifyContent:"flex-end", gap: 10}}>
-          <button className="btn" onClick={onDecline} disabled={busy}>Não aceito</button>
-          <button className="btn primary" onClick={accept} disabled={!checked || busy} style={{opacity: (!checked||busy)?.5:1}}>
-            {busy ? "Registrando…" : "Aceito e continuar"}
+          <button className="btn" onClick={onDecline}>Não aceito</button>
+          <button className="btn primary" onClick={accept} disabled={!checked} style={{opacity: !checked?.5:1}}>
+            Aceito e continuar
           </button>
         </div>
       </div>
