@@ -224,6 +224,9 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
   const [revealed, setRevealed] = useStateLib(false);
   const [isFullscreen, setIsFullscreen] = useStateLib(false);
   const [flashOn, setFlashOn] = useStateLib(false);
+  const [testAsUser, setTestAsUser] = useStateLib(false);
+  // effAdmin: true só quando admin E não está no modo de teste
+  const effAdmin = isAdmin && !testAsUser;
   const rootRef = useRefLib(null);
   const logRef = useRefLib({ blurCount: 0, lastLog: 0 });
   const flashTimerRef = useRefLib(null);
@@ -237,26 +240,31 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
     flashTimerRef.current = setTimeout(()=>setFlashOn(false), 1400);
   };
 
+  // Reset ao entrar no modo de teste como usuário
+  useEffectLib(()=>{
+    if (testAsUser){ setRevealed(false); setShowTerms(true); setTermsChecking(false); }
+  }, [testAsUser]);
+
   // Helper de log com debounce simples por tipo
   const trackEvent = useCallbackLib((event, severity, meta) => {
-    if (isAdmin) return;
+    if (effAdmin) return;
     if (!currentUser) return;
     const now = Date.now();
     if (now - logRef.current.lastLog < 800 && event === "blur") return;
     logRef.current.lastLog = now;
     logEvent(currentUser.id, r.id, event, severity, meta || null);
-  }, [currentUser?.id, isAdmin, r?.id]);
+  }, [currentUser?.id, effAdmin, r?.id]);
 
   // Termo de uso anti-vazamento: exibido a cada abertura do leitor
   useEffectLib(()=>{
-    if (!currentUser || isAdmin){ setTermsChecking(false); return; }
+    if (!currentUser || effAdmin){ setTermsChecking(false); return; }
     setShowTerms(true);
     setTermsChecking(false);
-  }, [currentUser?.id, isAdmin]);
+  }, [currentUser?.id, effAdmin]);
 
   // Verificação de dispositivo — roda após terms serem resolvidos
   useEffectLib(()=>{
-    if (isAdmin){ setDeviceStatus("ok"); return; }
+    if (effAdmin){ setDeviceStatus("ok"); return; }
     if (!currentUser || termsChecking || showTerms) return;
     generateDeviceFingerprint().then(fp => {
       setCurrentFp(fp);
@@ -268,13 +276,13 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
         setDeviceStatus("blocked");
       }
     });
-  }, [currentUser?.id, currentUser?.device_fingerprint, isAdmin, termsChecking, showTerms]);
+  }, [currentUser?.id, currentUser?.device_fingerprint, effAdmin, termsChecking, showTerms]);
 
   // Loga abertura
   useEffectLib(()=>{
-    if (!hasPdf || isAdmin || !currentUser || showTerms || termsChecking || deviceStatus !== "ok") return;
+    if (!hasPdf || effAdmin || !currentUser || showTerms || termsChecking || deviceStatus !== "ok") return;
     trackEvent("open", "info", { title: r.title });
-  }, [hasPdf, showTerms, termsChecking, deviceStatus, currentUser?.id, r?.id, isAdmin, trackEvent]);
+  }, [hasPdf, showTerms, termsChecking, deviceStatus, currentUser?.id, r?.id, effAdmin, trackEvent]);
 
   // PDF.js state
   const [pdfDoc, setPdfDoc] = useStateLib(null);
@@ -410,11 +418,11 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
     const onFsChange = () => {
       const fs = !!document.fullscreenElement;
       setIsFullscreen(fs);
-      if (!fs && !isAdmin) setRevealed(false);
+      if (!fs && !effAdmin) setRevealed(false);
     };
     document.addEventListener("fullscreenchange", onFsChange);
     return ()=>document.removeEventListener("fullscreenchange", onFsChange);
-  }, [isAdmin]);
+  }, [effAdmin]);
 
   // Wheel + Ctrl/Cmd → zoom
   useEffectLib(()=>{
@@ -494,10 +502,9 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
     };
   }, [pdfTotal, fakePages.length, isAdmin, trackEvent]);
 
-  // Anti-piracy: blur quando janela perde foco (pega gente abrindo print-tools, OBS scene switch, etc)
-  // Admin é exempto pra não atrapalhar revisão dos PDFs.
+  // Anti-piracy: blur quando janela perde foco
   useEffectLib(()=>{
-    if (isAdmin) return;
+    if (effAdmin) return;
     const onBlur = () => {
       document.body.classList.add("__blurred");
       logRef.current.blurCount = (logRef.current.blurCount || 0) + 1;
@@ -514,12 +521,11 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [trackEvent, isAdmin]);
+  }, [trackEvent, effAdmin]);
 
   // Anti-piracy: detecta DevTools abertos.
-  // SÓ loga (não esconde). Esconder com false-positives quebra UX legítimo.
   useEffectLib(()=>{
-    if (isAdmin) return;
+    if (effAdmin) return;
     let wasOpen = false;
     const check = () => {
       const threshold = 200;
@@ -531,7 +537,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
     };
     const t = setInterval(check, 1500);
     return ()=>{ clearInterval(t); };
-  }, [trackEvent, isAdmin]);
+  }, [trackEvent, effAdmin]);
 
   const area = AREAS.find(a=>a.id===r.area) || AREAS[0];
   const I = ILLU_FOR_AREA[r.area] || Illu.Cross;
@@ -564,10 +570,20 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
               <div className="display" style={{fontSize: 16, fontWeight: 700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{r.title}</div>
             </div>
           </div>
-          {isAdmin && (
+          {isAdmin && !testAsUser && (
             <span className="pill" style={{background:"var(--fg)", color:"var(--bg)", borderColor:"var(--fg)"}}>
               ★ Modo revisão
             </span>
+          )}
+          {isAdmin && (
+            <button
+              className={testAsUser ? "btn primary" : "btn"}
+              onClick={()=>setTestAsUser(s=>!s)}
+              style={{fontSize: 12, padding:"6px 12px"}}
+              title={testAsUser ? "Voltar ao modo de revisão (sem proteções)" : "Simula a experiência do usuário normal"}
+            >
+              {testAsUser ? "← Sair do teste" : "Testar como usuário"}
+            </button>
           )}
         </div>
 
@@ -633,9 +649,9 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
           position:"relative",
           overflow: hasPdf ? "auto" : "hidden",
           display: "block",
-          filter: (hasPdf && !revealed && !isAdmin) ? "blur(18px) saturate(.7)" : undefined,
+          filter: (hasPdf && !revealed && !effAdmin) ? "blur(18px) saturate(.7)" : undefined,
           transition: "filter .3s ease",
-          pointerEvents: (hasPdf && !revealed && !isAdmin) ? "none" : "auto",
+          pointerEvents: (hasPdf && !revealed && !effAdmin) ? "none" : "auto",
         }}>
           {/* Modo fake/demo só pra placeholder visual quando não tem PDF — sem watermark.
               Watermark de verdade vai direto no canvas quando hasPdf. */}
@@ -668,7 +684,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
         </div>
 
         {/* Reveal gate — modal sobre o blur com botão "Visualizar conteúdo" */}
-        {hasPdf && !revealed && !isAdmin && (
+        {hasPdf && !revealed && !effAdmin && (
           <div style={{
             position:"absolute", inset: 0, zIndex: 50,
             display:"flex", alignItems:"center", justifyContent:"center",
@@ -772,12 +788,12 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
       )}
 
       {/* Terms of use modal */}
-      {showTerms && currentUser && !isAdmin && (
+      {showTerms && currentUser && !effAdmin && (
         <TermsModal user={currentUser} onAccept={()=>setShowTerms(false)} onDecline={()=>go({ name:"library" })}/>
       )}
 
       {/* Device bind modal — primeiro acesso após compra */}
-      {!showTerms && !termsChecking && deviceStatus === "unbound" && currentUser && !isAdmin && (
+      {!showTerms && !termsChecking && deviceStatus === "unbound" && currentUser && !effAdmin && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.7)",backdropFilter:"blur(6px)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
           <div style={{background:"var(--surface)",border:"1px solid var(--line)",borderRadius:"var(--radius-lg)",padding:36,maxWidth:440,width:"100%",boxShadow:"var(--shadow-pop)"}}>
             <div style={{fontSize:32,marginBottom:16,textAlign:"center"}}>🔒</div>
@@ -803,7 +819,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
       )}
 
       {/* Tela de bloqueio — dispositivo diferente */}
-      {!showTerms && !termsChecking && deviceStatus === "blocked" && currentUser && !isAdmin && (
+      {!showTerms && !termsChecking && deviceStatus === "blocked" && currentUser && !effAdmin && (
         <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
           <div style={{maxWidth:420,width:"100%",textAlign:"center"}}>
             <div style={{fontSize:48,marginBottom:20}}>🔒</div>
