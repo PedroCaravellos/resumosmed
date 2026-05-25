@@ -93,8 +93,10 @@ async function deleteProduct(id){
     );
     if (p?.file_path){ try { await sb.storage.from("resumos").remove([p.file_path]); } catch {} }
   } catch (e) { console.warn("[deleteProduct] lookup falhou:", e); }
-  const res = await safe("deleteProduct", () => sb.from("products").delete().eq("id", id), { error: { message: "timeout" } });
-  return res?.error ? { error: res.error.message } : { ok: true };
+  const res = await safe("deleteProduct", () => sb.from("products").delete().eq("id", id).select("id"), { error: { message: "timeout" } });
+  if (res?.error) return { error: res.error.message };
+  if (!res?.data?.length) return { error: "Sem permissão para excluir. Verifique a política RLS da tabela products (DELETE para admin)." };
+  return { ok: true };
 }
 
 async function updateProduct(id, updates, newFile){
