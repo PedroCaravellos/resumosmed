@@ -719,7 +719,7 @@ function ResumoCard({ r, go, addToCart, cart, isOwned }){
 // ─────────────────────────────────────────────────────────
 //  PRODUCT PAGE
 // ─────────────────────────────────────────────────────────
-function Product({ id, go, addToCart, cart }){
+function Product({ id, go, addToCart, cart, currentUser }){
   const [r, setR] = useStateP(null);
   const [related, setRelated] = useStateP([]);
   const [loading, setLoading] = useStateP(true);
@@ -755,6 +755,7 @@ function Product({ id, go, addToCart, cart }){
   const area = AREAS.find(a=>a.id===r.area) || AREAS[0];
   const I = ILLU_FOR_AREA[r.area] || Illu.Cross;
   const inCart = cart?.some(c=>c.id===r.id);
+  const isOwned = currentUser?.purchases?.includes(r.id);
 
   return (
     <div className="pagewrap">
@@ -802,14 +803,22 @@ function Product({ id, go, addToCart, cart }){
               <div style={{color:"var(--muted)", fontSize: 14}}>à vista · ou 3x sem juros</div>
             </div>
 
-            <div className="row gap-md" style={{flexWrap:"wrap", marginBottom: 24}}>
-              <button className="btn primary lg" onClick={()=>{addToCart(r); go({name:"cart"});}} style={{flex:"1 1 220px", justifyContent:"center"}}>
-                Comprar agora
-              </button>
-              <button className="btn lg" onClick={()=>addToCart(r)} style={{flex:"0 1 auto"}}>
-                {inCart ? "✓ No carrinho" : "Add ao carrinho"}
-              </button>
-            </div>
+            {isOwned ? (
+              <div style={{marginBottom: 24, padding:"14px 18px", borderRadius:"var(--radius-md)", background:"var(--acc-2)", display:"flex", alignItems:"center", gap: 10}}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                <span style={{fontWeight: 600, fontSize: 15}}>Você já possui este resumo</span>
+                <button className="btn" onClick={()=>go({name:"library"})} style={{marginLeft:"auto", padding:"6px 14px", fontSize: 13}}>Abrir na biblioteca →</button>
+              </div>
+            ) : (
+              <div className="row gap-md" style={{flexWrap:"wrap", marginBottom: 24}}>
+                <button className="btn primary lg" onClick={()=>{addToCart(r); go({name:"cart"});}} style={{flex:"1 1 220px", justifyContent:"center"}}>
+                  Comprar agora
+                </button>
+                <button className="btn lg" onClick={()=>addToCart(r)} style={{flex:"0 1 auto"}}>
+                  {inCart ? "✓ No carrinho" : "Add ao carrinho"}
+                </button>
+              </div>
+            )}
 
             <div className="card" style={{padding: 18, marginBottom: 18}}>
               <div className="display" style={{fontSize: 16, fontWeight: 600, marginBottom: 12}}>O que está dentro</div>

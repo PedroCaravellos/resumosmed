@@ -160,7 +160,7 @@ function App(){
   let page;
   switch (route.name) {
     case "catalog":     page = <Catalog go={go} addToCart={addToCart} cart={cart} initialFilter={route.filter} currentUser={currentUser}/>; break;
-    case "product":     page = <Product id={route.id} go={go} addToCart={addToCart} cart={cart}/>; break;
+    case "product":     page = <Product id={route.id} go={go} addToCart={addToCart} cart={cart} currentUser={currentUser}/>; break;
     case "cart":        page = <Cart go={go} cart={cart} removeFromCart={removeFromCart} currentUser={currentUser} clearCart={clearCart} refreshUser={refreshUser}/>; break;
     case "login":       page = <Login go={go} onAuth={handleAuth}/>; break;
     case "signup":      page = <Signup go={go} onAuth={handleAuth}/>; break;
