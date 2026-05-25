@@ -572,7 +572,7 @@ function CtaBanner({ go }){
 // ─────────────────────────────────────────────────────────
 //  CATALOG PAGE
 // ─────────────────────────────────────────────────────────
-function Catalog({ go, addToCart, cart, initialFilter }){
+function Catalog({ go, addToCart, cart, initialFilter, currentUser }){
   const [filter, setFilter] = useStateP(initialFilter || "all");
   const [query, setQuery] = useStateP("");
   const [sort, setSort] = useStateP("popular");
@@ -589,15 +589,17 @@ function Catalog({ go, addToCart, cart, initialFilter }){
 
   useEffectP(()=>{ if (initialFilter) setFilter(initialFilter); }, [initialFilter]);
 
+  const owned = useMemoP(()=> new Set(currentUser?.purchases || []), [currentUser?.purchases]);
+
   const list = useMemoP(()=>{
-    let r = products.slice();
+    let r = products.filter(x => !owned.has(x.id));
     if (filter !== "all") r = r.filter(x=>x.area === filter);
     if (query) r = r.filter(x => (x.title + " " + (x.topics||[]).join(" ")).toLowerCase().includes(query.toLowerCase()));
     if (sort==="price-low") r.sort((a,b)=>a.price-b.price);
     else if (sort==="price-high") r.sort((a,b)=>b.price-a.price);
     else if (sort==="pages") r.sort((a,b)=>b.pages-a.pages);
     return r;
-  }, [products, filter, query, sort]);
+  }, [products, owned, filter, query, sort]);
 
   return (
     <div className="pagewrap">
