@@ -54,7 +54,7 @@ function Hero({ go, copy }){
       <FloatingDecor/>
 
       <div className="page hero-grid" style={{position:"relative", display:"grid", gridTemplateColumns:"1.15fr .85fr", gap: 56, alignItems:"center"}}>
-        <div>
+        <div data-hero-stagger>
           <div className="pill" style={{marginBottom: 22}}>
             <span className="blink"/>
             <span>{copy.eyebrow}</span>
@@ -334,7 +334,7 @@ function FeatureGrid(){
         eyebrow="Como funciona"
         title={["Resumo bom é resumo", "que economiza tempo."]}
       />
-      <div className="feature-grid" style={{display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap: "var(--gap-md)", marginTop: "var(--gap-lg)"}}>
+      <div data-reveal-stagger className="feature-grid" style={{display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap: "var(--gap-md)", marginTop: "var(--gap-lg)"}}>
         {[
           { icon: <Illu.Heart size={48}/>, title: "Direto ao ponto", text: "Só o que cai. Sem capítulos inteiros copiados do Goldman.", k:"01"},
           { icon: <Illu.Brain size={48} color="var(--acc-3)"/>, title: "Esquemas visuais", text: "Fluxogramas, tabelas e mnemônicos que grudam na memória.", k:"02"},
@@ -359,7 +359,7 @@ function FeatureGrid(){
 
 function SectionHead({ eyebrow, title }){
   return (
-    <div className="col" style={{gap: 14, maxWidth: 760}}>
+    <div data-reveal className="col" style={{gap: 14, maxWidth: 760}}>
       <div className="mono" style={{fontSize: 12, textTransform:"uppercase", letterSpacing:".1em", color:"var(--primary)"}}>{eyebrow}</div>
       <h2 className="display" style={{fontSize:"clamp(34px, 5vw, 60px)", fontWeight: 700, margin: 0, lineHeight: 1.05}}>
         {title[0]} <span className="serif" style={{fontWeight: 400}}>{title[1]}</span>
@@ -373,7 +373,7 @@ function PreviewSection({ go }){
   return (
     <section className="page" style={{paddingBottom:"var(--gap-xl)"}}>
       <div className="preview-grid" style={{background:"var(--surface)", border:"1px solid var(--line)", borderRadius:"var(--radius-lg)", padding:"clamp(24px, 5vw, 60px)", display:"grid", gridTemplateColumns:".95fr 1.05fr", gap: 48, alignItems:"center"}}>
-        <div>
+        <div data-reveal="left">
           <div className="mono" style={{fontSize: 12, textTransform:"uppercase", letterSpacing:".1em", color:"var(--primary)", marginBottom: 14}}>
             Um exemplo de página
           </div>
@@ -397,7 +397,7 @@ function PreviewSection({ go }){
           </button>
         </div>
 
-        <PreviewPdf/>
+        <div data-reveal="right"><PreviewPdf/></div>
       </div>
     </section>
   );
@@ -460,7 +460,7 @@ function Areas({ go }){
         <SectionHead eyebrow="Áreas" title={["Tudo organizado por","matéria."]}/>
         <button className="btn" onClick={()=>go({name:"catalog"})}>Ver catálogo completo →</button>
       </div>
-      <div className="areas-grid" style={{display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap: 14}}>
+      <div data-reveal-stagger="scale" className="areas-grid" style={{display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap: 14}}>
         {AREAS.map(a => {
           const I = ILLU_FOR_AREA[a.id];
           const count = RESUMOS.filter(r=>r.area===a.id).length;
@@ -485,7 +485,7 @@ function Pricing({ go }){
   return (
     <section className="page" style={{paddingBottom:"var(--gap-xl)"}}>
       <SectionHead eyebrow="Preço" title={["Compre 1, compre 5,","compre o pack."]}/>
-      <div className="pricing-grid" style={{display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap: 16, marginTop: "var(--gap-lg)"}}>
+      <div data-reveal-stagger className="pricing-grid" style={{display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap: 16, marginTop: "var(--gap-lg)"}}>
         {[
           { name:"Avulso", price:"R$ 29–59", desc:"Compre só o resumo que precisa. Sem assinatura, sem pegadinha.", btn:"Ver resumos", action:()=>go({name:"catalog"}), feats:["1 resumo em PDF", "Acesso vitalício", "Atualizações grátis", "Garantia de 7 dias"], soon: false },
           { name:"Pack por área", price:"Em breve", desc:"Todos os resumos de uma área (Cardio, Neuro, etc). Economize 35%.", btn:"Em breve", action: null, feats:["Todos os resumos da área", "Bônus: mapa mental", "Acesso vitalício", "Atualizações grátis"], highlight: true, soon: true },
@@ -528,7 +528,7 @@ function FAQ(){
             Não achou sua resposta? Abra um chamado pelo suporte do site — respondo geralmente em algumas horas.
           </p>
         </div>
-        <div className="col" style={{gap: 10}}>
+        <div data-reveal-stagger className="col" style={{gap: 10}}>
           {items.map((it, i)=>(
             <button key={i} onClick={()=>setOpen(open===i?-1:i)} className="card" style={{padding: "var(--card-pad)", textAlign:"left", cursor:"pointer", fontFamily:"inherit", color:"var(--fg)"}}>
               <div className="row between" style={{alignItems:"flex-start", gap: 16}}>
@@ -557,7 +557,7 @@ function CtaBanner({ go }){
         <div style={{position:"absolute", bottom: 16, right: 16, animation:"float 6s ease-in-out infinite 1s"}}><Illu.Pill size={56}/></div>
         <div style={{position:"absolute", top: 30, right: 50, animation:"float 7s ease-in-out infinite .5s"}}><Illu.Heart size={42} color="var(--acc-1)"/></div>
 
-        <div style={{position:"relative", maxWidth: 680, margin: "0 auto"}}>
+        <div data-reveal="fade" style={{position:"relative", maxWidth: 680, margin: "0 auto"}}>
           <h2 className="display" style={{fontSize:"clamp(36px, 5.5vw, 64px)", margin: 0, fontWeight: 700, lineHeight: 1.05}}>
             Sua próxima prova<br/>começa <span className="serif" style={{color:"var(--acc-1)", fontWeight: 400}}>hoje</span>.
           </h2>
