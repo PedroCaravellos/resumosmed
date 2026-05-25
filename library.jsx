@@ -146,25 +146,30 @@ function PdfReader({ id, go, currentUser }){
   const [r, setR] = useStateLib(null);
   const [loading, setLoading] = useStateLib(true);
   const [signedUrl, setSignedUrl] = useStateLib(null);
+  const [canRead, setCanRead] = useStateLib(null); // null = ainda verificando
   const isAdmin = currentUser?.role === "admin";
 
   useEffectLib(()=>{
     let mounted = true;
     setLoading(true);
     setSignedUrl(null);
+    setCanRead(null);
     (async () => {
       try {
         const prod = await fetchProductById(id);
         if (!mounted) return;
         setR(prod);
         if (prod?.file_path){
-          const canRead = isAdmin || (currentUser && (currentUser.purchases||[]).includes(prod.id));
-          if (canRead){
+          const access = isAdmin || (currentUser && (currentUser.purchases||[]).includes(prod.id));
+          if (mounted) setCanRead(access);
+          if (access){
             try {
               const url = await getSignedPdfUrl(prod.file_path, 60*60);
               if (mounted) setSignedUrl(url);
             } catch (e) { console.warn("[reader] signed url:", e); }
           }
+        } else {
+          if (mounted) setCanRead(isAdmin);
         }
       } catch (err) {
         console.error("[reader] fetchProductById:", err);
@@ -183,7 +188,7 @@ function PdfReader({ id, go, currentUser }){
       </div>
     );
   }
-  if (loading){
+  if (loading || canRead === null){
     return <div className="page" style={{paddingTop: 60, textAlign:"center", color:"var(--muted)"}}>Carregando…</div>;
   }
   if (!r) {
@@ -194,7 +199,7 @@ function PdfReader({ id, go, currentUser }){
       </div>
     );
   }
-  if (!isAdmin && !(currentUser.purchases||[]).includes(r.id)){
+  if (!canRead){
     return (
       <div className="page" style={{paddingTop: 60, textAlign:"center"}}>
         <div className="display" style={{fontSize: 24, fontWeight: 700}}>Você ainda não comprou este resumo.</div>
