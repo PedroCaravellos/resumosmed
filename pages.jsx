@@ -589,7 +589,19 @@ function Catalog({ go, addToCart, cart, initialFilter, currentUser }){
 
   useEffectP(()=>{ if (initialFilter) setFilter(initialFilter); }, [initialFilter]);
 
-  const owned = useMemoP(()=> new Set(currentUser?.purchases || []), [currentUser?.purchases]);
+  const [ownedIds, setOwnedIds] = useStateP(()=> currentUser?.purchases || []);
+
+  useEffectP(()=>{
+    setOwnedIds(currentUser?.purchases || []);
+    if (!currentUser?.id) return;
+    let mounted = true;
+    fetchUserPurchaseIds(currentUser.id)
+      .then(ids => { if (mounted) setOwnedIds(ids); })
+      .catch(()=>{});
+    return ()=>{ mounted = false; };
+  }, [currentUser?.id]);
+
+  const owned = useMemoP(()=> new Set(ownedIds), [ownedIds]);
 
   const list = useMemoP(()=>{
     let r = products.slice();
@@ -723,6 +735,8 @@ function Product({ id, go, addToCart, cart, currentUser }){
   const [r, setR] = useStateP(null);
   const [related, setRelated] = useStateP([]);
   const [loading, setLoading] = useStateP(true);
+  // Ownership: inicia com valor em cache (rápido) e confirma no servidor (robusto)
+  const [isOwned, setIsOwned] = useStateP(()=> !!(currentUser?.purchases?.includes(id)));
 
   useEffectP(()=>{
     let mounted = true;
@@ -744,6 +758,18 @@ function Product({ id, go, addToCart, cart, currentUser }){
     return ()=>{ mounted = false; };
   }, [id]);
 
+  // Verificação autoritativa de posse direto no banco — independente do cache do currentUser
+  useEffectP(()=>{
+    // Aplica cache imediatamente enquanto o servidor responde
+    setIsOwned(!!(currentUser?.purchases?.includes(id)));
+    if (!currentUser?.id) return;
+    let mounted = true;
+    fetchUserPurchaseIds(currentUser.id)
+      .then(ids => { if (mounted) setIsOwned(ids.includes(id)); })
+      .catch(()=>{});
+    return ()=>{ mounted = false; };
+  }, [currentUser?.id, id]);
+
   if (loading) return <div className="page" style={{padding: 80, textAlign:"center", color:"var(--muted)"}}>Carregando…</div>;
   if (!r) return (
     <div className="page" style={{padding: 80, textAlign:"center"}}>
@@ -755,7 +781,6 @@ function Product({ id, go, addToCart, cart, currentUser }){
   const area = AREAS.find(a=>a.id===r.area) || AREAS[0];
   const I = ILLU_FOR_AREA[r.area] || Illu.Cross;
   const inCart = cart?.some(c=>c.id===r.id);
-  const isOwned = currentUser?.purchases?.includes(r.id);
 
   return (
     <div className="pagewrap">
