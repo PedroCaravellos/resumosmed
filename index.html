@@ -130,6 +130,16 @@
   @keyframes float { 0%,100%{ transform: translateY(0);} 50%{ transform: translateY(-6px);} }
   @keyframes ecg-dash { to { stroke-dashoffset: -1000; } }
   @keyframes spin-slow { to { transform: rotate(360deg); } }
+  @keyframes spin-logo {
+    0%   { transform: rotate(0deg)   scale(1);    }
+    30%  { transform: rotate(120deg) scale(1.12); }
+    60%  { transform: rotate(240deg) scale(0.92); }
+    100% { transform: rotate(360deg) scale(1);    }
+  }
+  @keyframes spin-logo-fade {
+    0%,100% { opacity: 1; }
+    50%     { opacity: .6; }
+  }
 
   /* Page transition */
   @keyframes pageIn { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }

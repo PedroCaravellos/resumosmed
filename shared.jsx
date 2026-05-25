@@ -170,6 +170,34 @@ function Logo({ size = 24 }){
   );
 }
 
+// ─────────── Spinner ───────────
+function Spinner({ size = 52, label = "" }){
+  return (
+    <div style={{display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap: 16}}>
+      <svg
+        width={size} height={size} viewBox="0 0 32 32" fill="none"
+        style={{
+          animation: "spin-logo 1.1s cubic-bezier(.4,0,.2,1) infinite",
+          filter: "drop-shadow(0 4px 12px color-mix(in oklab, var(--primary) 40%, transparent))",
+        }}
+      >
+        <rect x="1" y="1" width="30" height="30" rx="9" fill="var(--primary)"/>
+        <rect x="13.5" y="7" width="5" height="18" rx="1.6" fill="var(--primary-ink)"/>
+        <rect x="7" y="13.5" width="18" height="5" rx="1.6" fill="var(--primary-ink)"/>
+      </svg>
+      {label && (
+        <span style={{
+          fontSize: 13, color: "var(--muted)", fontFamily: "var(--font-mono)",
+          animation: "spin-logo-fade 1.1s ease-in-out infinite",
+          letterSpacing: ".04em",
+        }}>
+          {label}
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ─────────── Nav ───────────
 function Nav({ route, go, cartCount, dark, toggleDark, currentUser, authReady, onLogout }){
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -408,5 +436,5 @@ function Footer({ go }){
 
 // Expose
 Object.assign(window, {
-  AREAS, RESUMOS, ILLU_FOR_AREA, Illu, Logo, Nav, Footer
+  AREAS, RESUMOS, ILLU_FOR_AREA, Illu, Logo, Spinner, Nav, Footer
 });

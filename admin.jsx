@@ -368,7 +368,7 @@ function AdminProducts({ go }){
       </div>
       <div className="card" style={{padding: 0, overflow:"hidden"}}>
         {loading ? (
-          <div style={{padding: 60, textAlign:"center", color:"var(--muted)"}}>Carregando produtos…</div>
+          <div style={{padding: 60, display:"flex", justifyContent:"center"}}><Spinner/></div>
         ) : (
         <table style={{width:"100%", borderCollapse:"collapse", fontSize: 14}}>
           <thead>
@@ -538,7 +538,7 @@ function AdminHistory(){
 
       <div className="card" style={{padding: 0, overflow:"hidden"}}>
         {loading ? (
-          <div style={{padding: 60, textAlign:"center", color:"var(--muted)"}}>Carregando vendas…</div>
+          <div style={{padding: 60, display:"flex", justifyContent:"center"}}><Spinner/></div>
         ) : rows.length === 0 ? (
           <div style={{padding: 60, textAlign:"center", color:"var(--muted)"}}>Nenhuma venda encontrada.</div>
         ) : (
@@ -880,7 +880,7 @@ function AdminUsers(){
 
       <div className="card" style={{padding: 0, overflow:"hidden"}}>
         {loading ? (
-          <div style={{padding: 60, textAlign:"center", color:"var(--muted)"}}>Carregando usuários…</div>
+          <div style={{padding: 60, display:"flex", justifyContent:"center"}}><Spinner/></div>
         ) : rows.length === 0 ? (
           <div style={{padding: 60, textAlign:"center", color:"var(--muted)"}}>Nenhum usuário encontrado.</div>
         ) : (
@@ -1014,7 +1014,7 @@ function UserLogsModal({ user, onClose }){
 
         <div style={{maxHeight: "60vh", overflowY:"auto"}}>
           {loading ? (
-            <div style={{padding: 40, textAlign:"center", color:"var(--muted)"}}>Carregando logs…</div>
+            <div style={{padding: 40, display:"flex", justifyContent:"center"}}><Spinner size={40}/></div>
           ) : logs.length === 0 ? (
             <div style={{padding: 40, textAlign:"center", color:"var(--muted)"}}>Nenhuma atividade registrada.</div>
           ) : (
@@ -1234,7 +1234,7 @@ function AdminSupport({ currentUser }){
         ))}
       </div>
 
-      {loading && <div style={{ textAlign:"center", color:"var(--muted)", padding:60 }}>Carregando...</div>}
+      {loading && <div style={{padding:60, display:"flex", justifyContent:"center"}}><Spinner/></div>}
 
       {!loading && filtered.length === 0 && (
         <div style={{ textAlign:"center", color:"var(--muted)", padding:60, fontSize:14, lineHeight:1.8 }}>

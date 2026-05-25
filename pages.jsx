@@ -670,8 +670,8 @@ function Catalog({ go, addToCart, cart, initialFilter, currentUser }){
       {/* Grid */}
       <section className="page" style={{paddingBottom: "var(--gap-xl)"}}>
         {loading ? (
-          <div style={{padding: 80, textAlign:"center", color:"var(--muted)"}}>
-            <div className="display" style={{fontSize: 18, color:"var(--muted)"}}>Carregando catálogo…</div>
+          <div style={{padding: 80, display:"flex", justifyContent:"center"}}>
+            <Spinner label="carregando catálogo"/>
           </div>
         ) : list.length === 0 ? (
           <div style={{padding: 80, textAlign:"center", color:"var(--muted)"}}>
@@ -770,7 +770,7 @@ function Product({ id, go, addToCart, cart, currentUser }){
     return ()=>{ mounted = false; };
   }, [currentUser?.id, id]);
 
-  if (loading) return <div className="page" style={{padding: 80, textAlign:"center", color:"var(--muted)"}}>Carregando…</div>;
+  if (loading) return <div className="page" style={{padding: 80, display:"flex", justifyContent:"center"}}><Spinner/></div>;
   if (!r) return (
     <div className="page" style={{padding: 80, textAlign:"center"}}>
       <div className="display" style={{fontSize: 24, fontWeight: 700}}>Resumo não encontrado.</div>

@@ -84,7 +84,7 @@ function MyLibrary({ go, currentUser }){
 
       <section className="page" style={{paddingBottom:"var(--gap-xl)"}}>
         {loading ? (
-          <div style={{padding: 80, textAlign:"center", color:"var(--muted)"}}>Carregando sua biblioteca…</div>
+          <div style={{padding: 80, display:"flex", justifyContent:"center"}}><Spinner label="carregando biblioteca"/></div>
         ) : owned.length === 0 ? (
           <div className="card" style={{padding: 60, textAlign:"center", marginTop: 16}}>
             <Illu.Brain size={64}/>
@@ -189,7 +189,7 @@ function PdfReader({ id, go, currentUser }){
     );
   }
   if (loading || canRead === null){
-    return <div className="page" style={{paddingTop: 60, textAlign:"center", color:"var(--muted)"}}>Carregando…</div>;
+    return <div className="page" style={{paddingTop: 80, display:"flex", justifyContent:"center"}}><Spinner/></div>;
   }
   if (!r) {
     return (
@@ -658,8 +658,8 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
           {hasPdf ? (
             <>
               {pdfLoading && (
-                <div style={{position:"absolute", inset: 0, display:"flex", alignItems:"center", justifyContent:"center", color:"var(--muted)", fontSize: 14, zIndex: 2}}>
-                  Carregando PDF…
+                <div style={{position:"absolute", inset: 0, display:"flex", alignItems:"center", justifyContent:"center", zIndex: 2}}>
+                  <Spinner label="carregando pdf"/>
                 </div>
               )}
               {pdfError && (
