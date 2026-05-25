@@ -316,8 +316,8 @@ function navLink(active){
 function Footer({ go }){
   return (
     <footer style={{borderTop:"1px solid var(--line)", marginTop: "var(--gap-xl)", paddingTop: 48, paddingBottom: 36, background:"var(--bg)"}}>
-      <div className="page" style={{display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr", gap: 36}}>
-        <div>
+      <div className="footer-grid" style={{display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr", gap: 36}}>
+        <div className="footer-brand">
           <Logo size={26}/>
           <p style={{color:"var(--muted)", fontSize: 14, maxWidth: 320, marginTop: 14}}>
             Resumos de medicina escritos por um aluno que tirou notas altas pra você não precisar refazer todo o estudo do zero.
@@ -333,12 +333,11 @@ function Footer({ go }){
           </div>
         </div>
         <div>
-          <div style={{fontWeight: 700, marginBottom: 12, fontSize: 13}}>Sobre</div>
+          <div style={{fontWeight: 700, marginBottom: 12, fontSize: 13}}>Suporte</div>
           <div className="col" style={{gap: 8, fontSize: 14, color:"var(--muted)"}}>
-            <a>Quem fez</a>
-            <a>Método</a>
-            <a>Atualizações</a>
-            <a>Contato</a>
+            <a style={{cursor:"pointer"}} onClick={()=>go({name:"profile"})}>Minha conta</a>
+            <a style={{cursor:"pointer"}} onClick={()=>go({name:"profile"})}>Abrir chamado</a>
+            <a style={{cursor:"pointer"}} onClick={()=>go({name:"terms", anchor:"reembolso"})}>Reembolso</a>
           </div>
         </div>
         <div>
@@ -346,7 +345,6 @@ function Footer({ go }){
           <div className="col" style={{gap: 8, fontSize: 14, color:"var(--muted)"}}>
             <a style={{cursor:"pointer"}} onClick={()=>go({name:"terms"})}>Termos de uso</a>
             <a style={{cursor:"pointer"}} onClick={()=>go({name:"privacy"})}>Privacidade</a>
-            <a style={{cursor:"pointer"}} onClick={()=>go({name:"terms", anchor:"reembolso"})}>Reembolso</a>
           </div>
         </div>
       </div>

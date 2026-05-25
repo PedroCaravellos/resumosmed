@@ -53,7 +53,7 @@ function Hero({ go, copy }){
       {/* Floating decorations */}
       <FloatingDecor/>
 
-      <div className="page" style={{position:"relative", display:"grid", gridTemplateColumns:"1.15fr .85fr", gap: 56, alignItems:"center"}}>
+      <div className="page hero-grid" style={{position:"relative", display:"grid", gridTemplateColumns:"1.15fr .85fr", gap: 56, alignItems:"center"}}>
         <div>
           <div className="pill" style={{marginBottom: 22}}>
             <span className="blink"/>
@@ -79,7 +79,7 @@ function Hero({ go, copy }){
               Ver um exemplo grátis
             </button>
           </div>
-          <div style={{display:"grid", gridTemplateColumns:"repeat(4, auto)", columnGap: 24, rowGap: 14, marginTop: 38, color:"var(--muted)", fontSize: 13, justifyContent:"start"}}>
+          <div className="hero-stats" style={{display:"grid", gridTemplateColumns:"repeat(4, auto)", columnGap: 24, rowGap: 14, marginTop: 38, color:"var(--muted)", fontSize: 13, justifyContent:"start"}}>
             <StatItem n="26+" label="resumos" />
             <StatItem n="R$ 29" label="a partir de" />
             <StatItem n="Online" label="leitor protegido" />
@@ -87,7 +87,7 @@ function Hero({ go, copy }){
           </div>
         </div>
 
-        <HeroVisual/>
+        <div className="hero-visual-wrap"><HeroVisual/></div>
       </div>
     </section>
   );
@@ -334,7 +334,7 @@ function FeatureGrid(){
         eyebrow="Como funciona"
         title={["Resumo bom é resumo", "que economiza tempo."]}
       />
-      <div style={{display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap: "var(--gap-md)", marginTop: "var(--gap-lg)"}}>
+      <div className="feature-grid" style={{display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap: "var(--gap-md)", marginTop: "var(--gap-lg)"}}>
         {[
           { icon: <Illu.Heart size={48}/>, title: "Direto ao ponto", text: "Só o que cai. Sem capítulos inteiros copiados do Goldman.", k:"01"},
           { icon: <Illu.Brain size={48} color="var(--acc-3)"/>, title: "Esquemas visuais", text: "Fluxogramas, tabelas e mnemônicos que grudam na memória.", k:"02"},
@@ -372,7 +372,7 @@ function SectionHead({ eyebrow, title }){
 function PreviewSection({ go }){
   return (
     <section className="page" style={{paddingBottom:"var(--gap-xl)"}}>
-      <div style={{background:"var(--surface)", border:"1px solid var(--line)", borderRadius:"var(--radius-lg)", padding:"clamp(24px, 5vw, 60px)", display:"grid", gridTemplateColumns:".95fr 1.05fr", gap: 48, alignItems:"center"}}>
+      <div className="preview-grid" style={{background:"var(--surface)", border:"1px solid var(--line)", borderRadius:"var(--radius-lg)", padding:"clamp(24px, 5vw, 60px)", display:"grid", gridTemplateColumns:".95fr 1.05fr", gap: 48, alignItems:"center"}}>
         <div>
           <div className="mono" style={{fontSize: 12, textTransform:"uppercase", letterSpacing:".1em", color:"var(--primary)", marginBottom: 14}}>
             Um exemplo de página
@@ -460,7 +460,7 @@ function Areas({ go }){
         <SectionHead eyebrow="Áreas" title={["Tudo organizado por","matéria."]}/>
         <button className="btn" onClick={()=>go({name:"catalog"})}>Ver catálogo completo →</button>
       </div>
-      <div style={{display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap: 14}}>
+      <div className="areas-grid" style={{display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap: 14}}>
         {AREAS.map(a => {
           const I = ILLU_FOR_AREA[a.id];
           const count = RESUMOS.filter(r=>r.area===a.id).length;
@@ -479,57 +479,28 @@ function Areas({ go }){
   );
 }
 
-// ─────────── Testimonials ───────────
-function Testimonials(){
-  const list = [
-    { name:"Júlia M.", role:"M4 · USP", text:"Comprei o de Cardio na semana da prova. Tirei 9.5. Sem palavras.", stars: 5, bg:"var(--acc-1)" },
-    { name:"Rafael S.", role:"M3 · UFMG", text:"O resumo de Diabetes resolveu a vida. Fluxograma de insulina é ouro.", stars: 5, bg:"var(--acc-2)" },
-    { name:"Camila T.", role:"M5 · Santa Casa", text:"Tô usando pra revisar antes da residência. Conteúdo extremamente enxuto.", stars: 5, bg:"var(--acc-3)" },
-    { name:"Pedro G.", role:"M2 · UFRJ", text:"Achei caro até abrir. Vale cada centavo, sério.", stars: 5, bg:"var(--acc-4)" },
-  ];
-  return (
-    <section className="page" style={{paddingBottom:"var(--gap-xl)"}} id="sobre">
-      <SectionHead eyebrow="Quem já usou" title={["Antes que pergunte:","sim, funciona."]}/>
-      <div style={{display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap: 14, marginTop: "var(--gap-lg)"}}>
-        {list.map((t, i)=>(
-          <div key={i} className="card" style={{padding: "var(--card-pad)", display:"flex", flexDirection:"column", gap: 18, position:"relative", overflow:"hidden"}}>
-            <div style={{position:"absolute", top:-30, right:-30, width: 140, height: 140, borderRadius: 999, background: t.bg, opacity: .35}}/>
-            <div style={{position:"relative", color:"var(--primary)", fontSize: 14, letterSpacing:"2px"}}>{"★".repeat(t.stars)}</div>
-            <div style={{position:"relative", fontSize: 15.5, lineHeight: 1.55, color:"var(--fg)"}}>"{t.text}"</div>
-            <div style={{position:"relative", marginTop:"auto", display:"flex", alignItems:"center", gap: 10}}>
-              <div style={{width: 32, height: 32, borderRadius: 999, background: t.bg, display:"flex", alignItems:"center", justifyContent:"center", fontWeight: 700, fontSize: 13, color:"var(--fg)"}}>{t.name[0]}</div>
-              <div>
-                <div style={{fontSize: 13, fontWeight: 600}}>{t.name}</div>
-                <div style={{fontSize: 11, color:"var(--muted)"}}>{t.role}</div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
 
 // ─────────── Pricing ───────────
 function Pricing({ go }){
   return (
     <section className="page" style={{paddingBottom:"var(--gap-xl)"}}>
       <SectionHead eyebrow="Preço" title={["Compre 1, compre 5,","compre o pack."]}/>
-      <div style={{display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap: 16, marginTop: "var(--gap-lg)"}}>
+      <div className="pricing-grid" style={{display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap: 16, marginTop: "var(--gap-lg)"}}>
         {[
-          { name:"Avulso", price:"R$ 29–59", desc:"Compre só o resumo que precisa. Sem assinatura, sem pegadinha.", btn:"Ver resumos", action:()=>go({name:"catalog"}), feats:["1 resumo em PDF", "Acesso vitalício", "Atualizações grátis", "Garantia de 7 dias"] },
-          { name:"Pack por área", price:"R$ 99", desc:"Todos os resumos de uma área (Cardio, Neuro, etc). Economize 35%.", btn:"Ver packs", action:()=>go({name:"catalog"}), feats:["Todos os resumos da área", "Bônus: mapa mental", "Acesso vitalício", "Atualizações grátis"], highlight: true },
-          { name:"Combo completo", price:"R$ 299", desc:"Todos os 26 resumos. Tudo, atualizado, pronto pros 6 anos.", btn:"Quero o combo", action:()=>go({name:"catalog"}), feats:["Catálogo completo", "Atualizações vitalícias", "Bônus: flashcards de revisão", "Suporte direto comigo"] },
+          { name:"Avulso", price:"R$ 29–59", desc:"Compre só o resumo que precisa. Sem assinatura, sem pegadinha.", btn:"Ver resumos", action:()=>go({name:"catalog"}), feats:["1 resumo em PDF", "Acesso vitalício", "Atualizações grátis", "Garantia de 7 dias"], soon: false },
+          { name:"Pack por área", price:"Em breve", desc:"Todos os resumos de uma área (Cardio, Neuro, etc). Economize 35%.", btn:"Em breve", action: null, feats:["Todos os resumos da área", "Bônus: mapa mental", "Acesso vitalício", "Atualizações grátis"], highlight: true, soon: true },
+          { name:"Combo completo", price:"Em breve", desc:"Todos os resumos do catálogo. Tudo, atualizado, pronto pros 6 anos.", btn:"Em breve", action: null, feats:["Catálogo completo", "Atualizações vitalícias", "Bônus: flashcards de revisão", "Suporte direto comigo"], soon: true },
         ].map((p, i)=>(
-          <div key={i} className="card" style={{padding: 26, display:"flex", flexDirection:"column", gap: 14, position:"relative", border: p.highlight ? "2px solid var(--primary)" : undefined}}>
-            {p.highlight && <div style={{position:"absolute", top:-10, left: 22, background:"var(--primary)", color:"var(--primary-ink)", padding:"3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing:".05em"}}>MAIS POPULAR</div>}
+          <div key={i} className="card" style={{padding: 26, display:"flex", flexDirection:"column", gap: 14, position:"relative", border: p.highlight ? "2px solid var(--primary)" : undefined, opacity: p.soon ? .65 : 1}}>
+            {p.highlight && !p.soon && <div style={{position:"absolute", top:-10, left: 22, background:"var(--primary)", color:"var(--primary-ink)", padding:"3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing:".05em"}}>MAIS POPULAR</div>}
+            {p.soon && <div style={{position:"absolute", top:-10, left: 22, background:"var(--fg)", color:"var(--bg)", padding:"3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing:".05em"}}>EM BREVE</div>}
             <div className="display" style={{fontSize: 22, fontWeight: 700}}>{p.name}</div>
-            <div className="display" style={{fontSize: 40, fontWeight: 700, color:"var(--primary)", lineHeight: 1}}>{p.price}</div>
+            <div className="display" style={{fontSize: p.soon ? 24 : 40, fontWeight: 700, color: p.soon ? "var(--muted)" : "var(--primary)", lineHeight: 1}}>{p.price}</div>
             <div style={{color:"var(--muted)", fontSize: 14, lineHeight: 1.5}}>{p.desc}</div>
             <ul style={{listStyle:"none", padding: 0, margin:"10px 0", display:"flex", flexDirection:"column", gap: 8, fontSize: 14}}>
               {p.feats.map(f=><li key={f} className="row" style={{gap: 8}}><span style={{color:"var(--acc-2)", fontWeight: 700}}>✓</span>{f}</li>)}
             </ul>
-            <button onClick={p.action} className={"btn " + (p.highlight ? "primary" : "")} style={{justifyContent:"center", marginTop:"auto"}}>{p.btn}</button>
+            <button disabled={p.soon} onClick={p.action || undefined} className={"btn " + (p.highlight && !p.soon ? "primary" : "")} style={{justifyContent:"center", marginTop:"auto", cursor: p.soon ? "default" : "pointer"}}>{p.btn}</button>
           </div>
         ))}
       </div>
@@ -550,11 +521,11 @@ function FAQ(){
   ];
   return (
     <section className="page" style={{paddingBottom:"var(--gap-xl)"}} id="faq">
-      <div style={{display:"grid", gridTemplateColumns:".7fr 1fr", gap: "var(--gap-lg)", alignItems:"flex-start"}}>
+      <div className="faq-grid" style={{display:"grid", gridTemplateColumns:".7fr 1fr", gap: "var(--gap-lg)", alignItems:"flex-start"}}>
         <div style={{position:"sticky", top: 96}}>
           <SectionHead eyebrow="FAQ" title={["Quase tudo","que perguntam."]}/>
           <p style={{color:"var(--muted)", marginTop: 18, fontSize: 15, lineHeight: 1.6}}>
-            Não achou sua resposta? Manda DM no meu Insta — respondo geralmente em algumas horas.
+            Não achou sua resposta? Abra um chamado pelo suporte do site — respondo geralmente em algumas horas.
           </p>
         </div>
         <div className="col" style={{gap: 10}}>
@@ -1653,7 +1624,7 @@ function TermsPage({ go, anchor }){
       <p style={p}>Os pagamentos são processados pelo Mercado Pago. O resumosmed não armazena dados de cartão de crédito. O acesso ao material é liberado imediatamente após a confirmação do pagamento.</p>
 
       <div id="reembolso" style={h2}>4. Política de reembolso</div>
-      <p style={p}>Oferecemos garantia de 7 dias a partir da data da compra. Para solicitar reembolso, entre em contato pelo email de suporte. O reembolso é processado pelo Mercado Pago em até 10 dias úteis. Após 7 dias, não são aceitas solicitações de reembolso.</p>
+      <p style={p}>Oferecemos garantia de 7 dias a partir da data da compra. Para solicitar reembolso, abra um chamado pelo formulário de suporte do site. O reembolso é processado pelo Mercado Pago em até 10 dias úteis. Após 7 dias, não são aceitas solicitações de reembolso.</p>
 
       <div style={h2}>5. Atualizações</div>
       <p style={p}>Os resumos são atualizados periodicamente. Compras realizadas dão direito a todas as versões futuras do mesmo material, sem custo adicional.</p>
@@ -1662,7 +1633,7 @@ function TermsPage({ go, anchor }){
       <p style={p}>Os resumos têm fins educacionais e não substituem a leitura das diretrizes clínicas, livros-texto ou orientação médica profissional. O resumosmed não se responsabiliza por decisões clínicas baseadas exclusivamente em seu conteúdo.</p>
 
       <div style={h2}>7. Contato</div>
-      <p style={p}>Dúvidas? Entre em contato pelo email de suporte disponível no rodapé do site.</p>
+      <p style={p}>Dúvidas? Entre em contato pelo formulário de suporte disponível no site.</p>
     </LegalPage>
   );
 }
@@ -1701,13 +1672,13 @@ function PrivacyPage({ go }){
       <p style={p}>Os dados são armazenados na infraestrutura do Supabase (servidores na região us-east-1) com criptografia em repouso e em trânsito. Senhas nunca são armazenadas — apenas hashes gerenciados pelo Supabase Auth.</p>
 
       <div style={h2}>5. Seus direitos (LGPD)</div>
-      <p style={p}>Você tem direito a acessar, corrigir ou excluir seus dados pessoais a qualquer momento. Para exercer esses direitos, entre em contato pelo email de suporte. Solicitações de exclusão de conta serão processadas em até 30 dias.</p>
+      <p style={p}>Você tem direito a acessar, corrigir ou excluir seus dados pessoais a qualquer momento. Para exercer esses direitos, entre em contato pelo formulário de suporte do site. Solicitações de exclusão de conta serão processadas em até 30 dias.</p>
 
       <div style={h2}>6. Cookies</div>
       <p style={p}>Usamos apenas cookies essenciais para manter sua sessão autenticada. Não utilizamos cookies de rastreamento ou publicidade de terceiros.</p>
 
       <div style={h2}>7. Contato</div>
-      <p style={p}>Para questões relacionadas à privacidade, entre em contato pelo email de suporte disponível no site.</p>
+      <p style={p}>Para questões relacionadas à privacidade, entre em contato pelo formulário de suporte disponível no site.</p>
     </LegalPage>
   );
 }
