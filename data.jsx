@@ -237,11 +237,23 @@ async function acceptTerms(userId){
 }
 
 async function saveDeviceFingerprint(userId, fingerprint, deviceName){
-  const res = await safe("saveDeviceFingerprint", () =>
-    sb.from("profiles").update({ device_fingerprint: fingerprint, device_name: deviceName }).eq("id", userId),
-    { error: null }
-  );
-  return res?.error ? { error: res.error.message } : { ok: true };
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return { error: "Sessão inválida" };
+    const res = await fetch(`${window.SUPABASE_URL}/functions/v1/save-device-fingerprint`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ fingerprint, deviceName }),
+    });
+    const body = await res.json();
+    if (!res.ok || body.error) return { error: body.error || "Falha ao salvar" };
+    return { ok: true };
+  } catch (e) {
+    return { error: String(e) };
+  }
 }
 
 // ─────────── Admin: user management ───────────
