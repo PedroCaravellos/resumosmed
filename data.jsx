@@ -26,7 +26,8 @@ async function safe(label, fn, fallback){
 async function fetchProducts(){
   const res = await safe("fetchProducts", () => sb
     .from("products")
-    .select("id,title,area,price,pages,topics,updated,file_path,file_name,created_at,preview")
+    .select("id,title,area,price,pages,topics,updated,file_path,file_name,created_at,preview,active")
+    .eq("active", true)
     .order("created_at", { ascending: false }),
     { data: [], error: null }
   );
@@ -86,16 +87,14 @@ async function createProduct(p){
 }
 
 async function deleteProduct(id){
-  try {
-    const { data: p } = await queryWithTimeout(
-      sb.from("products").select("file_path").eq("id", id).maybeSingle(),
-      "deleteProduct/lookup"
-    );
-    if (p?.file_path){ try { await sb.storage.from("resumos").remove([p.file_path]); } catch {} }
-  } catch (e) { console.warn("[deleteProduct] lookup falhou:", e); }
-  const res = await safe("deleteProduct", () => sb.from("products").delete().eq("id", id).select("id"), { error: { message: "timeout" } });
+  // Soft delete — marca como inativo em vez de deletar fisicamente,
+  // preservando a FK com purchases e o acesso de quem já comprou.
+  const res = await safe("deleteProduct", () =>
+    sb.from("products").update({ active: false }).eq("id", id).select("id"),
+    { error: { message: "timeout" } }
+  );
   if (res?.error) return { error: res.error.message };
-  if (!res?.data?.length) return { error: "Sem permissão para excluir. Verifique a política RLS da tabela products (DELETE para admin)." };
+  if (!res?.data?.length) return { error: "Sem permissão. Verifique a RLS policy de UPDATE na tabela products." };
   return { ok: true };
 }
 

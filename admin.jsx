@@ -341,7 +341,7 @@ function AdminProducts({ go }){
   }, []);
 
   const remove = async (id) => {
-    if (!confirm("Remover este resumo do catálogo? Quem já comprou continua acessando.")) return;
+    if (!confirm("Ocultar este resumo do catálogo? Ele não será deletado do banco — quem já comprou continua acessando normalmente.")) return;
     const r = await deleteProduct(id);
     if (r.error){ alert("Erro ao remover: " + r.error); return; }
     setProducts(prev => prev.filter(p=>p.id!==id));
