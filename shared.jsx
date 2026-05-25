@@ -14,6 +14,9 @@ const AREAS = [
   { id: "pedia",   name: "Pediatria",          color: "var(--acc-1)" },
   { id: "go",      name: "Ginecologia & Obstetrícia", color: "var(--primary)" },
   { id: "cirurgia",name: "Cirurgia",           color: "var(--acc-3)" },
+  { id: "radio",   name: "Radiologia",         color: "var(--acc-3)" },
+  { id: "fisio",   name: "Fisiologia",         color: "var(--acc-2)" },
+  { id: "histo",   name: "Histologia",         color: "var(--acc-1)" },
 ];
 
 const RESUMOS = [
@@ -139,6 +142,35 @@ const Illu = {
       </g>
     </svg>
   ),
+  Radio: ({ size=42, color="var(--acc-3)", bg="var(--bg)" }) => (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <rect x="2" y="2" width="60" height="60" rx="16" fill={color}/>
+      <path d="M20 22 L32 29 L44 22" stroke={bg} strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+      <line x1="32" y1="29" x2="32" y2="50" stroke={bg} strokeWidth="3" strokeLinecap="round"/>
+      <path d="M32 33 Q23 35 17 42" stroke={bg} strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+      <path d="M32 40 Q21 42 15 49" stroke={bg} strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+      <path d="M32 33 Q41 35 47 42" stroke={bg} strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+      <path d="M32 40 Q43 42 49 49" stroke={bg} strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+    </svg>
+  ),
+  Fisio: ({ size=42, color="var(--acc-2)", bg="var(--bg)" }) => (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <rect x="2" y="2" width="60" height="60" rx="16" fill={color}/>
+      <path d="M8 36 L20 36 L26 36 L30 14 L34 52 L38 36 L56 36"
+            stroke={bg} strokeWidth="3.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  Histo: ({ size=42, color="var(--acc-1)", bg="var(--bg)" }) => (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <rect x="2" y="2" width="60" height="60" rx="16" fill={color}/>
+      <circle cx="32" cy="30" r="11" stroke={bg} strokeWidth="3" fill="none"/>
+      <circle cx="32" cy="30" r="4.5" fill={bg}/>
+      <circle cx="13" cy="26" r="8" stroke={bg} strokeWidth="2" fill="none" opacity=".55"/>
+      <circle cx="51" cy="26" r="8" stroke={bg} strokeWidth="2" fill="none" opacity=".55"/>
+      <circle cx="22" cy="47" r="8" stroke={bg} strokeWidth="2" fill="none" opacity=".45"/>
+      <circle cx="42" cy="47" r="8" stroke={bg} strokeWidth="2" fill="none" opacity=".45"/>
+    </svg>
+  ),
 };
 
 const ILLU_FOR_AREA = {
@@ -152,6 +184,9 @@ const ILLU_FOR_AREA = {
   pedia: Illu.Baby,
   go: Illu.Uterus,
   cirurgia: Illu.Scalpel,
+  radio: Illu.Radio,
+  fisio: Illu.Fisio,
+  histo: Illu.Histo,
 };
 
 // ─────────── Logo ───────────
