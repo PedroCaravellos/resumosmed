@@ -247,12 +247,11 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
     logEvent(currentUser.id, r.id, event, severity, meta || null);
   }, [currentUser?.id, isAdmin, r?.id]);
 
-  // Termo de uso anti-vazamento: bloqueia leitor até aceitar
+  // Termo de uso anti-vazamento: exibido a cada abertura do leitor
   useEffectLib(()=>{
     if (!currentUser || isAdmin){ setTermsChecking(false); return; }
-    hasAcceptedTerms(currentUser.id)
-      .then(ok => { setShowTerms(!ok); setTermsChecking(false); })
-      .catch(err => { console.warn("[terms]", err); setTermsChecking(false); });
+    setShowTerms(true);
+    setTermsChecking(false);
   }, [currentUser?.id, isAdmin]);
 
   // Verificação de dispositivo — roda após terms serem resolvidos
@@ -866,7 +865,7 @@ function TermsModal({ user, onAccept, onDecline }){
           </div>
           <div>
             <div className="mono" style={{fontSize: 11, textTransform:"uppercase", letterSpacing:".1em", color:"var(--primary)", marginBottom: 4}}>
-              Antes de ler o seu primeiro resumo
+              Lembrete a cada acesso
             </div>
             <div className="display" style={{fontSize: 22, fontWeight: 700, lineHeight: 1.1}}>
               Termo de uso anti-vazamento
