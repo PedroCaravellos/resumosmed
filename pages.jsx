@@ -512,7 +512,7 @@ function FAQ(){
     { q:"Como acesso os resumos?", a:"Direto na sua biblioteca aqui no site, leitor próprio, qualquer dispositivo. Sem download — é leitura online com seu acesso vitalício." },
     { q:"Posso imprimir ou baixar?", a:"Não. É leitura online no nosso leitor protegido. Isso garante que o conteúdo não vaze e você consegue acessar de qualquer dispositivo a qualquer hora." },
     { q:"E se eu não gostar?", a:"7 dias de garantia, sem perguntas. Não gostou, devolvo. Simples assim." },
-    { q:"Funciona pra residência?", a:"Funciona pra base. Pros últimos meses, faça questões — mas o conteúdo conceitual está todo lá." },
+    { q:"Funciona pra residência?", a:"Os resumos têm conteúdos que caem no ENAMED, com os tópicos sinalizados ao longo do material. Feitos com base nas provas, simulados e referências consagradas como o Porto: Semiologia Médica; são ideais para estudantes da Veiga de Almeida, mas servem para qualquer faculdade, especialmente no ciclo básico. O catálogo cobre do 1º ao 6º período hoje, e cresce conforme avanço na graduação." },
     { q:"Quem faz esses resumos?", a:"Eu, estudante de medicina. Comecei resumindo pra mim e pros amigos da turma. Agora estou abrindo pra quem quiser." },
   ];
   return (
