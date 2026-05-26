@@ -782,7 +782,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
       </footer>}
 
       {/* Floating quiz button */}
-      {r.quiz_json?.questions?.length > 0 && !showQuiz && (
+      {r.quiz_json?.questions?.length > 0 && !showQuiz && (revealed || effAdmin) && (
         <button
           onClick={()=>setShowQuiz(true)}
           style={{
