@@ -786,7 +786,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
         <button
           onClick={()=>setShowQuiz(true)}
           style={{
-            position:"absolute", bottom: 76, right: 28, zIndex: 90,
+            position:"absolute", bottom: 76, left:"50%", transform:"translateX(-50%)", zIndex: 90,
             display:"flex", alignItems:"center", gap: 10,
             padding:"13px 22px", borderRadius: 999, border:"none",
             background:"var(--primary)", color:"var(--primary-ink)",
@@ -1272,13 +1272,23 @@ function QuizModal({ quiz, title, onClose }){
               </div>
             )}
 
-            {answered && (
-              <div style={{marginTop:18, display:"flex", justifyContent:"flex-end"}}>
+            <div style={{marginTop:18, display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+              <button
+                className="btn"
+                onClick={()=>setCurrent(c=>c-1)}
+                disabled={current===0}
+                style={{opacity: current===0 ? .35 : 1}}
+              >
+                ← Anterior
+              </button>
+              {answered ? (
                 <button className="btn primary" onClick={next} style={{padding:"10px 22px", fontSize:14}}>
                   {current < totalQ - 1 ? "Próxima →" : "Ver resultado →"}
                 </button>
-              </div>
-            )}
+              ) : (
+                <span className="mono" style={{fontSize:12, color:"var(--muted)"}}>Selecione uma alternativa</span>
+              )}
+            </div>
           </div>
         )}
 
