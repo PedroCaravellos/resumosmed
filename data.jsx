@@ -26,7 +26,7 @@ async function safe(label, fn, fallback){
 async function fetchProducts(){
   const res = await safe("fetchProducts", () => sb
     .from("products")
-    .select("id,title,area,price,pages,topics,updated,file_path,file_name,created_at,preview,active")
+    .select("id,title,area,price,pages,topics,updated,file_path,file_name,created_at,preview,active,quiz_json")
     .eq("active", true)
     .order("created_at", { ascending: false }),
     { data: [], error: null }
