@@ -1170,10 +1170,15 @@ function QuizModal({ quiz, title, onClose }){
   const [current, setCurrent] = useStateLib(0);
   const [answers, setAnswers] = useStateLib({});
   const [phase, setPhase] = useStateLib("quiz");
+  const [animKey, setAnimKey] = useStateLib(0);
 
   const q = questions[current];
   const answered = answers[current];
-  const allAnswered = Object.keys(answers).length === totalQ;
+
+  const goTo = (idx) => {
+    setCurrent(idx);
+    setAnimKey(k => k + 1);
+  };
 
   const select = (letter) => {
     if (answered) return;
@@ -1181,11 +1186,11 @@ function QuizModal({ quiz, title, onClose }){
   };
 
   const next = () => {
-    if (current < totalQ - 1) setCurrent(c => c + 1);
+    if (current < totalQ - 1) goTo(current + 1);
     else setPhase("results");
   };
 
-  const reset = () => { setCurrent(0); setAnswers({}); setPhase("quiz"); };
+  const reset = () => { setCurrent(0); setAnimKey(k=>k+1); setAnswers({}); setPhase("quiz"); };
 
   const score = questions.filter((q, i) => q.correct === answers[i]).length;
   const pct = totalQ > 0 ? Math.round((score / totalQ) * 100) : 0;
@@ -1193,136 +1198,192 @@ function QuizModal({ quiz, title, onClose }){
 
   const optionLabels = ["a","b","c","d","e"];
 
-  const optionStyle = (letter) => {
-    if (!answered){
-      return { background:"var(--bg)", border:"1.5px solid var(--line-strong)", color:"var(--fg)", cursor:"pointer" };
-    }
-    if (letter === q.correct){
-      return { background:"#dcfce7", border:"1.5px solid #22c55e", color:"#166534", cursor:"default" };
-    }
-    if (letter === answered){
-      return { background:"#fee2e2", border:"1.5px solid var(--primary)", color:"var(--primary)", cursor:"default" };
-    }
-    return { background:"var(--bg)", border:"1.5px solid var(--line)", color:"var(--muted)", cursor:"default", opacity:.7 };
+  const optionBg = (letter) => {
+    if (!answered) return "var(--surface)";
+    if (letter === q.correct) return "#dcfce7";
+    if (letter === answered) return "#fee2e2";
+    return "var(--surface)";
+  };
+  const optionBorder = (letter) => {
+    if (!answered) return "1.5px solid var(--line-strong)";
+    if (letter === q.correct) return "1.5px solid #22c55e";
+    if (letter === answered) return "1.5px solid var(--primary)";
+    return "1.5px solid var(--line)";
+  };
+  const optionColor = (letter) => {
+    if (!answered) return "var(--fg)";
+    if (letter === q.correct) return "#166534";
+    if (letter === answered) return "var(--primary)";
+    return "var(--muted)";
   };
 
   return (
-    <div style={{position:"fixed", inset:0, zIndex:250, background:"rgba(0,0,0,.6)", backdropFilter:"blur(6px)", WebkitBackdropFilter:"blur(6px)", display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"40px 20px", overflowY:"auto", animation:"pageIn .2s ease"}}
-      onClick={(e)=>{ if (e.target===e.currentTarget) onClose(); }}>
-      <div style={{background:"var(--surface)", borderRadius:"var(--radius-lg)", border:"1px solid var(--line)", boxShadow:"var(--shadow-pop)", width:"100%", maxWidth:680, overflow:"hidden", animation:"pageIn .25s cubic-bezier(.2,.7,.1,1)"}}>
+    <div
+      style={{position:"fixed", inset:0, zIndex:250, background:"rgba(0,0,0,.72)", display:"flex", alignItems:"center", justifyContent:"center", padding:"24px 20px", animation:"pageIn .2s ease"}}
+      onClick={(e)=>{ if (e.target===e.currentTarget) onClose(); }}
+    >
+      <div style={{background:"var(--surface)", borderRadius:"var(--radius-lg)", border:"1px solid var(--line)", boxShadow:"var(--shadow-pop)", width:"100%", maxWidth:660, maxHeight:"90vh", display:"flex", flexDirection:"column", overflow:"hidden", animation:"pageIn .28s cubic-bezier(.2,.7,.1,1)"}}>
 
         {/* Header */}
-        <div style={{padding:"20px 26px 16px", borderBottom:"1px solid var(--line)", display:"flex", alignItems:"center", justifyContent:"space-between", gap:14}}>
-          <div style={{minWidth:0}}>
-            <div className="mono" style={{fontSize:11, textTransform:"uppercase", letterSpacing:".1em", color:"var(--primary)", marginBottom:4}}>Questionário</div>
-            <div className="display" style={{fontSize:18, fontWeight:700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{title}</div>
-          </div>
-          <div className="row" style={{gap:12, flexShrink:0}}>
+        <div style={{padding:"18px 24px 14px", borderBottom:"1px solid var(--line)", display:"flex", alignItems:"center", justifyContent:"space-between", gap:14, flexShrink:0}}>
+          <div style={{minWidth:0, flex:1}}>
+            <div className="mono" style={{fontSize:10, textTransform:"uppercase", letterSpacing:".1em", color:"var(--primary)", marginBottom:3}}>Questionário · {title}</div>
+            {/* Dot progress */}
             {phase === "quiz" && (
-              <div className="mono" style={{fontSize:13, color:"var(--muted)", fontWeight:600}}>{current+1} / {totalQ}</div>
-            )}
-            <button onClick={onClose} aria-label="Fechar" style={{width:34, height:34, borderRadius:999, border:"1px solid var(--line)", background:"var(--bg)", color:"var(--fg)", display:"inline-flex", alignItems:"center", justifyContent:"center", cursor:"pointer"}}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-            </button>
-          </div>
-        </div>
-
-        {/* Body */}
-        {phase === "quiz" && q && (
-          <div style={{padding:"24px 26px"}}>
-            {/* Progress bar */}
-            <div style={{height:4, background:"var(--bg)", borderRadius:999, marginBottom:22, overflow:"hidden"}}>
-              <div style={{height:"100%", width:`${((current+1)/totalQ)*100}%`, background:"var(--primary)", borderRadius:999, transition:"width .3s ease"}}/>
-            </div>
-
-            {/* Question */}
-            <div className="display" style={{fontSize:17, fontWeight:700, lineHeight:1.5, marginBottom:20}}>
-              {q.text}
-            </div>
-
-            {/* Options */}
-            <div style={{display:"flex", flexDirection:"column", gap:10}}>
-              {optionLabels.map(letter => {
-                const opt = q.options?.[letter];
-                if (!opt) return null;
-                const style = optionStyle(letter);
-                return (
-                  <button key={letter} onClick={()=>select(letter)} style={{
-                    display:"flex", alignItems:"flex-start", gap:12, padding:"12px 16px",
-                    borderRadius:12, fontFamily:"inherit", textAlign:"left", fontSize:14.5,
-                    lineHeight:1.5, transition:"all .12s ease",
-                    ...style,
-                  }}>
-                    <span style={{fontFamily:"var(--font-mono)", fontWeight:700, fontSize:13, marginTop:1, minWidth:18}}>
-                      {letter.toUpperCase()}
-                    </span>
-                    <span>{opt}</span>
-                    {answered && letter === q.correct && <span style={{marginLeft:"auto", flexShrink:0}}>✓</span>}
-                    {answered && letter === answered && letter !== q.correct && <span style={{marginLeft:"auto", flexShrink:0}}>✗</span>}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Explanation */}
-            {answered && q.explanation && (
-              <div style={{marginTop:18, padding:"14px 16px", background:"var(--bg)", borderRadius:12, border:"1px solid var(--line)", fontSize:14, lineHeight:1.65, color:"var(--fg)"}}>
-                <div className="mono" style={{fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:".08em", color:"var(--primary)", marginBottom:8}}>Explicação</div>
-                {q.explanation}
+              <div style={{display:"flex", gap:4, flexWrap:"wrap", marginTop:6}}>
+                {questions.map((_, i) => {
+                  const a = answers[i];
+                  const correct = a === questions[i].correct;
+                  const bg = a !== undefined ? (correct ? "#22c55e" : "var(--primary)") : (i === current ? "var(--fg)" : "var(--line-strong)");
+                  const size = i === current ? 10 : 7;
+                  return (
+                    <button key={i} onClick={()=>goTo(i)} style={{width:size, height:size, borderRadius:999, background:bg, border:"none", cursor:"pointer", padding:0, transition:"all .2s ease", flexShrink:0}}/>
+                  );
+                })}
               </div>
             )}
+          </div>
+          <button onClick={onClose} aria-label="Fechar" style={{width:34, height:34, borderRadius:999, border:"1px solid var(--line)", background:"var(--bg)", color:"var(--fg)", display:"inline-flex", alignItems:"center", justifyContent:"center", cursor:"pointer", flexShrink:0}}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
 
-            <div style={{marginTop:18, display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+        {/* Quiz phase */}
+        {phase === "quiz" && q && (
+          <div style={{flex:1, overflowY:"auto", padding:"22px 24px 20px"}}>
+
+            {/* Progress bar */}
+            <div style={{height:3, background:"var(--line)", borderRadius:999, marginBottom:20, overflow:"hidden"}}>
+              <div style={{height:"100%", width:`${((current+1)/totalQ)*100}%`, background:"var(--primary)", borderRadius:999, transition:"width .35s cubic-bezier(.4,0,.2,1)"}}/>
+            </div>
+
+            {/* Question — key forces re-animation on change */}
+            <div key={animKey} style={{animation:"pageIn .22s cubic-bezier(.2,.7,.1,1)"}}>
+              <div style={{fontSize:11, color:"var(--muted)", fontFamily:"var(--font-mono)", marginBottom:10}}>
+                {current+1} / {totalQ}
+              </div>
+              <div className="display" style={{fontSize:18, fontWeight:700, lineHeight:1.5, marginBottom:18, color:"var(--fg)"}}>
+                {q.text}
+              </div>
+
+              {/* Options */}
+              <div style={{display:"flex", flexDirection:"column", gap:8}}>
+                {optionLabels.map(letter => {
+                  const opt = q.options?.[letter];
+                  if (!opt) return null;
+                  const isCorrect = letter === q.correct;
+                  const isChosen = letter === answered;
+                  const inactive = answered && !isCorrect && !isChosen;
+                  return (
+                    <button
+                      key={letter}
+                      onClick={()=>select(letter)}
+                      disabled={!!answered}
+                      style={{
+                        display:"flex", alignItems:"flex-start", gap:12,
+                        padding:"11px 15px", borderRadius:12,
+                        fontFamily:"inherit", textAlign:"left", fontSize:14,
+                        lineHeight:1.5, width:"100%",
+                        background: optionBg(letter),
+                        border: optionBorder(letter),
+                        color: optionColor(letter),
+                        cursor: answered ? "default" : "pointer",
+                        opacity: inactive ? .55 : 1,
+                        transition:"background .2s ease, border-color .2s ease, opacity .2s ease, transform .1s ease",
+                        transform:"scale(1)",
+                      }}
+                      onMouseEnter={e=>{ if (!answered) e.currentTarget.style.transform="scale(1.01)"; }}
+                      onMouseLeave={e=>{ e.currentTarget.style.transform="scale(1)"; }}
+                    >
+                      <span style={{
+                        width:24, height:24, borderRadius:7, flexShrink:0,
+                        background: answered
+                          ? (isCorrect ? "#22c55e" : isChosen ? "var(--primary)" : "var(--line)")
+                          : "var(--line)",
+                        color: (isCorrect || isChosen) && answered ? "#fff" : "var(--muted)",
+                        display:"inline-flex", alignItems:"center", justifyContent:"center",
+                        fontFamily:"var(--font-mono)", fontWeight:700, fontSize:11,
+                        transition:"background .2s ease, color .2s ease",
+                        marginTop:1,
+                      }}>
+                        {isCorrect && answered ? "✓" : isChosen && !isCorrect && answered ? "✗" : letter.toUpperCase()}
+                      </span>
+                      <span style={{flex:1}}>{opt}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Explanation */}
+              {answered && q.explanation && (
+                <div style={{marginTop:16, padding:"13px 15px", background:"var(--bg)", borderRadius:12, border:"1px solid var(--line)", fontSize:13.5, lineHeight:1.7, color:"var(--fg)", animation:"pageIn .25s ease"}}>
+                  <div className="mono" style={{fontSize:10, fontWeight:700, textTransform:"uppercase", letterSpacing:".1em", color:"var(--primary)", marginBottom:7}}>Explicação</div>
+                  {q.explanation}
+                </div>
+              )}
+            </div>
+
+            {/* Nav */}
+            <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:20}}>
               <button
                 className="btn"
-                onClick={()=>setCurrent(c=>c-1)}
+                onClick={()=>goTo(current-1)}
                 disabled={current===0}
-                style={{opacity: current===0 ? .35 : 1}}
+                style={{opacity: current===0 ? .3 : 1, transition:"opacity .2s"}}
               >
                 ← Anterior
               </button>
               {answered ? (
-                <button className="btn primary" onClick={next} style={{padding:"10px 22px", fontSize:14}}>
+                <button className="btn primary" onClick={next} style={{padding:"10px 24px", fontSize:14, transition:"transform .1s ease"}}
+                  onMouseEnter={e=>e.currentTarget.style.transform="scale(1.03)"}
+                  onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>
                   {current < totalQ - 1 ? "Próxima →" : "Ver resultado →"}
                 </button>
               ) : (
-                <span className="mono" style={{fontSize:12, color:"var(--muted)"}}>Selecione uma alternativa</span>
+                <span className="mono" style={{fontSize:11.5, color:"var(--muted)"}}>Escolha uma alternativa</span>
               )}
             </div>
           </div>
         )}
 
-        {/* Results */}
+        {/* Results phase */}
         {phase === "results" && (
-          <div style={{padding:"24px 26px"}}>
-            {/* Score */}
-            <div style={{textAlign:"center", marginBottom:28}}>
-              <div className="display" style={{fontSize:52, fontWeight:700, color:scoreColor, lineHeight:1}}>{score} / {totalQ}</div>
-              <div style={{fontSize:17, color:"var(--muted)", marginTop:8}}>{pct}% de acerto</div>
-              <div style={{height:10, background:"var(--bg)", borderRadius:999, margin:"16px auto 0", maxWidth:280, overflow:"hidden"}}>
-                <div style={{height:"100%", width:`${pct}%`, background:scoreColor, borderRadius:999, transition:"width .5s ease"}}/>
+          <div style={{flex:1, overflowY:"auto", padding:"24px 24px 20px", animation:"pageIn .3s cubic-bezier(.2,.7,.1,1)"}}>
+            <div style={{textAlign:"center", marginBottom:24}}>
+              <div className="display" style={{fontSize:56, fontWeight:700, color:scoreColor, lineHeight:1}}>{score}<span style={{fontSize:32, color:"var(--muted)"}}>/{totalQ}</span></div>
+              <div style={{fontSize:16, color:"var(--muted)", marginTop:6}}>{pct}% de acerto</div>
+              <div style={{height:8, background:"var(--line)", borderRadius:999, margin:"14px auto 0", maxWidth:260, overflow:"hidden"}}>
+                <div style={{height:"100%", width:`${pct}%`, background:scoreColor, borderRadius:999, transition:"width .6s cubic-bezier(.4,0,.2,1)"}}/>
               </div>
-              <div style={{fontSize:13, color:"var(--muted)", marginTop:10}}>
-                {pct >= 80 ? "Excelente! Você domina o conteúdo." : pct >= 60 ? "Bom resultado! Revise os pontos errados." : "Continue estudando — releia o resumo e refaça o quiz."}
+              <div style={{fontSize:13, color:"var(--muted)", marginTop:10, lineHeight:1.5}}>
+                {pct >= 80 ? "Excelente — você domina o conteúdo." : pct >= 60 ? "Bom resultado! Revise os pontos errados." : "Continue estudando — releia o resumo e refaça o quiz."}
               </div>
             </div>
 
-            {/* Question breakdown */}
-            <div style={{display:"flex", flexDirection:"column", gap:8, maxHeight:"44vh", overflowY:"auto"}}>
+            <div style={{display:"flex", flexDirection:"column", gap:7}}>
               {questions.map((q, i) => {
                 const userAns = answers[i];
                 const correct = userAns === q.correct;
                 return (
-                  <div key={i} style={{display:"flex", alignItems:"flex-start", gap:12, padding:"12px 14px", borderRadius:10, border:`1px solid ${correct ? "#22c55e" : "var(--primary)"}`, background:correct ? "#f0fdf4" : "#fef2f2"}}>
-                    <div style={{fontSize:16, flexShrink:0, marginTop:1}}>{correct ? "✓" : "✗"}</div>
+                  <button key={i} onClick={()=>{ setPhase("quiz"); goTo(i); }} style={{
+                    display:"flex", alignItems:"flex-start", gap:11,
+                    padding:"11px 13px", borderRadius:10, textAlign:"left", fontFamily:"inherit",
+                    border:`1px solid ${correct ? "#bbf7d0" : "#fecaca"}`,
+                    background: correct ? "#f0fdf4" : "#fef2f2",
+                    cursor:"pointer", transition:"transform .1s ease, box-shadow .1s ease",
+                  }}
+                    onMouseEnter={e=>{ e.currentTarget.style.transform="translateX(3px)"; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.transform="translateX(0)"; }}
+                  >
+                    <span style={{fontSize:15, flexShrink:0, marginTop:1}}>{correct ? "✓" : "✗"}</span>
                     <div style={{flex:1, minWidth:0}}>
-                      <div style={{fontSize:13.5, fontWeight:600, lineHeight:1.4, marginBottom:4}}>{q.text}</div>
-                      <div className="mono" style={{fontSize:12, color: correct ? "#166534" : "var(--primary)"}}>
-                        Sua resposta: <b>{(userAns||"—").toUpperCase()}</b>
+                      <div style={{fontSize:13, fontWeight:600, lineHeight:1.4, color:"var(--fg)", marginBottom:3}}>{q.text}</div>
+                      <div className="mono" style={{fontSize:11, color: correct ? "#166534" : "var(--primary)"}}>
+                        Sua: <b>{(userAns||"—").toUpperCase()}</b>
                         {!correct && <> · Certa: <b>{q.correct.toUpperCase()}</b></>}
                       </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
