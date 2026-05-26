@@ -39,7 +39,7 @@ async function fetchProductById(id){
   if (!id) return null;
   const res = await safe("fetchProductById", () => sb
     .from("products")
-    .select("id,title,area,price,pages,topics,updated,file_path,file_name,preview")
+    .select("id,title,area,price,pages,topics,updated,file_path,file_name,preview,quiz_json")
     .eq("id", id).maybeSingle(),
     { data: null, error: null }
   );
@@ -77,6 +77,7 @@ async function createProduct(p){
     topics: p.topics?.length ? p.topics : ["Conceitos","Diagnóstico","Tratamento","Prova"],
     updated: month, file_path, file_name,
     preview: p.preview || null,
+    quiz_json: p.quiz_json || null,
   };
   const res = await safe("createProduct/insert", () => sb.from("products").insert(row).select().single(), { data: null, error: { message: "timeout" } });
   if (res?.error){
@@ -106,6 +107,7 @@ async function updateProduct(id, updates, newFile){
   if (updates.pages  != null) patch.pages  = parseInt(updates.pages, 10) || 0;
   if (updates.topics  != null) patch.topics  = Array.isArray(updates.topics) ? updates.topics : [];
   if (updates.preview != null) patch.preview = updates.preview;
+  if (updates.quiz_json !== undefined) patch.quiz_json = updates.quiz_json;
 
   if (newFile){
     try {
@@ -323,6 +325,15 @@ async function adminRevokePurchase(purchaseId){
   return { ok: true };
 }
 
+async function saveQuizJson(productId, quizJson){
+  const res = await safe("saveQuizJson", () =>
+    sb.from("products").update({ quiz_json: quizJson }).eq("id", productId).select("id"),
+    { error: { message: "timeout" } }
+  );
+  if (res?.error) return { error: res.error.message };
+  return { ok: true };
+}
+
 // ─────────── Support Tickets ───────────
 async function fetchUserTickets(userId){
   if (!userId) return [];
@@ -409,7 +420,7 @@ Object.assign(window, {
   normalizeProduct,
   logEvent, hasAcceptedTerms, acceptTerms, saveDeviceFingerprint,
   fetchUserActivity, fetchUserLogs, setUserBan,
-  adminGrantPurchase, adminRevokePurchase,
+  adminGrantPurchase, adminRevokePurchase, saveQuizJson,
   fetchUserTickets, submitSupportTicket, fetchAllTickets, resolveTicket, deleteTicket,
   fetchTicketReplies, addTicketReply,
   Q_TIMEOUT, queryWithTimeout, safe,

@@ -225,6 +225,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
   const [isFullscreen, setIsFullscreen] = useStateLib(false);
   const [flashOn, setFlashOn] = useStateLib(false);
   const [testAsUser, setTestAsUser] = useStateLib(false);
+  const [showQuiz, setShowQuiz] = useStateLib(false);
   // effAdmin: true só quando admin E não está no modo de teste
   const effAdmin = isAdmin && !testAsUser;
   const rootRef = useRefLib(null);
@@ -778,7 +779,16 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
           <button className="btn reader-nav-btn" disabled={page===0} onClick={()=>setPage(p=>Math.max(0,p-1))} style={{opacity: page===0?.4:1}}>← Anterior</button>
           <button className="btn primary reader-nav-btn" disabled={page===total-1} onClick={()=>setPage(p=>Math.min(total-1, p+1))} style={{opacity: page===total-1?.4:1}}>Próxima →</button>
         </div>
+        {r.quiz_json?.questions?.length > 0 && (
+          <button className="btn" onClick={()=>setShowQuiz(true)} style={{display:"flex", alignItems:"center", gap: 6, fontSize: 13}}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>
+            Questionário
+          </button>
+        )}
       </footer>}
+
+      {/* Quiz modal */}
+      {showQuiz && <QuizModal quiz={r.quiz_json} title={r.title} onClose={()=>setShowQuiz(false)}/>}
 
       {/* Flash banner — shows when blocked action attempted */}
       {flashOn && (
@@ -1130,6 +1140,171 @@ function BulletList({ items }){
         </li>
       ))}
     </ul>
+  );
+}
+
+// ─────────── Quiz Modal ───────────
+function QuizModal({ quiz, title, onClose }){
+  const questions = quiz?.questions || [];
+  const totalQ = questions.length;
+  const [current, setCurrent] = useStateLib(0);
+  const [answers, setAnswers] = useStateLib({});
+  const [phase, setPhase] = useStateLib("quiz");
+
+  const q = questions[current];
+  const answered = answers[current];
+  const allAnswered = Object.keys(answers).length === totalQ;
+
+  const select = (letter) => {
+    if (answered) return;
+    setAnswers(prev => ({...prev, [current]: letter}));
+  };
+
+  const next = () => {
+    if (current < totalQ - 1) setCurrent(c => c + 1);
+    else setPhase("results");
+  };
+
+  const reset = () => { setCurrent(0); setAnswers({}); setPhase("quiz"); };
+
+  const score = questions.filter((q, i) => q.correct === answers[i]).length;
+  const pct = totalQ > 0 ? Math.round((score / totalQ) * 100) : 0;
+  const scoreColor = pct >= 80 ? "#22c55e" : pct >= 60 ? "#f59e0b" : "var(--primary)";
+
+  const optionLabels = ["a","b","c","d","e"];
+
+  const optionStyle = (letter) => {
+    if (!answered){
+      return { background:"var(--bg)", border:"1.5px solid var(--line-strong)", color:"var(--fg)", cursor:"pointer" };
+    }
+    if (letter === q.correct){
+      return { background:"#dcfce7", border:"1.5px solid #22c55e", color:"#166534", cursor:"default" };
+    }
+    if (letter === answered){
+      return { background:"#fee2e2", border:"1.5px solid var(--primary)", color:"var(--primary)", cursor:"default" };
+    }
+    return { background:"var(--bg)", border:"1.5px solid var(--line)", color:"var(--muted)", cursor:"default", opacity:.7 };
+  };
+
+  return (
+    <div style={{position:"fixed", inset:0, zIndex:250, background:"rgba(0,0,0,.6)", backdropFilter:"blur(6px)", WebkitBackdropFilter:"blur(6px)", display:"flex", alignItems:"flex-start", justifyContent:"center", padding:"40px 20px", overflowY:"auto", animation:"pageIn .2s ease"}}
+      onClick={(e)=>{ if (e.target===e.currentTarget) onClose(); }}>
+      <div style={{background:"var(--surface)", borderRadius:"var(--radius-lg)", border:"1px solid var(--line)", boxShadow:"var(--shadow-pop)", width:"100%", maxWidth:680, overflow:"hidden", animation:"pageIn .25s cubic-bezier(.2,.7,.1,1)"}}>
+
+        {/* Header */}
+        <div style={{padding:"20px 26px 16px", borderBottom:"1px solid var(--line)", display:"flex", alignItems:"center", justifyContent:"space-between", gap:14}}>
+          <div style={{minWidth:0}}>
+            <div className="mono" style={{fontSize:11, textTransform:"uppercase", letterSpacing:".1em", color:"var(--primary)", marginBottom:4}}>Questionário</div>
+            <div className="display" style={{fontSize:18, fontWeight:700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{title}</div>
+          </div>
+          <div className="row" style={{gap:12, flexShrink:0}}>
+            {phase === "quiz" && (
+              <div className="mono" style={{fontSize:13, color:"var(--muted)", fontWeight:600}}>{current+1} / {totalQ}</div>
+            )}
+            <button onClick={onClose} aria-label="Fechar" style={{width:34, height:34, borderRadius:999, border:"1px solid var(--line)", background:"var(--bg)", color:"var(--fg)", display:"inline-flex", alignItems:"center", justifyContent:"center", cursor:"pointer"}}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        {phase === "quiz" && q && (
+          <div style={{padding:"24px 26px"}}>
+            {/* Progress bar */}
+            <div style={{height:4, background:"var(--bg)", borderRadius:999, marginBottom:22, overflow:"hidden"}}>
+              <div style={{height:"100%", width:`${((current+1)/totalQ)*100}%`, background:"var(--primary)", borderRadius:999, transition:"width .3s ease"}}/>
+            </div>
+
+            {/* Question */}
+            <div className="display" style={{fontSize:17, fontWeight:700, lineHeight:1.5, marginBottom:20}}>
+              {q.text}
+            </div>
+
+            {/* Options */}
+            <div style={{display:"flex", flexDirection:"column", gap:10}}>
+              {optionLabels.map(letter => {
+                const opt = q.options?.[letter];
+                if (!opt) return null;
+                const style = optionStyle(letter);
+                return (
+                  <button key={letter} onClick={()=>select(letter)} style={{
+                    display:"flex", alignItems:"flex-start", gap:12, padding:"12px 16px",
+                    borderRadius:12, fontFamily:"inherit", textAlign:"left", fontSize:14.5,
+                    lineHeight:1.5, transition:"all .12s ease",
+                    ...style,
+                  }}>
+                    <span style={{fontFamily:"var(--font-mono)", fontWeight:700, fontSize:13, marginTop:1, minWidth:18}}>
+                      {letter.toUpperCase()}
+                    </span>
+                    <span>{opt}</span>
+                    {answered && letter === q.correct && <span style={{marginLeft:"auto", flexShrink:0}}>✓</span>}
+                    {answered && letter === answered && letter !== q.correct && <span style={{marginLeft:"auto", flexShrink:0}}>✗</span>}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Explanation */}
+            {answered && q.explanation && (
+              <div style={{marginTop:18, padding:"14px 16px", background:"var(--bg)", borderRadius:12, border:"1px solid var(--line)", fontSize:14, lineHeight:1.65, color:"var(--fg)"}}>
+                <div className="mono" style={{fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:".08em", color:"var(--primary)", marginBottom:8}}>Explicação</div>
+                {q.explanation}
+              </div>
+            )}
+
+            {answered && (
+              <div style={{marginTop:18, display:"flex", justifyContent:"flex-end"}}>
+                <button className="btn primary" onClick={next} style={{padding:"10px 22px", fontSize:14}}>
+                  {current < totalQ - 1 ? "Próxima →" : "Ver resultado →"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Results */}
+        {phase === "results" && (
+          <div style={{padding:"24px 26px"}}>
+            {/* Score */}
+            <div style={{textAlign:"center", marginBottom:28}}>
+              <div className="display" style={{fontSize:52, fontWeight:700, color:scoreColor, lineHeight:1}}>{score} / {totalQ}</div>
+              <div style={{fontSize:17, color:"var(--muted)", marginTop:8}}>{pct}% de acerto</div>
+              <div style={{height:10, background:"var(--bg)", borderRadius:999, margin:"16px auto 0", maxWidth:280, overflow:"hidden"}}>
+                <div style={{height:"100%", width:`${pct}%`, background:scoreColor, borderRadius:999, transition:"width .5s ease"}}/>
+              </div>
+              <div style={{fontSize:13, color:"var(--muted)", marginTop:10}}>
+                {pct >= 80 ? "Excelente! Você domina o conteúdo." : pct >= 60 ? "Bom resultado! Revise os pontos errados." : "Continue estudando — releia o resumo e refaça o quiz."}
+              </div>
+            </div>
+
+            {/* Question breakdown */}
+            <div style={{display:"flex", flexDirection:"column", gap:8, maxHeight:"44vh", overflowY:"auto"}}>
+              {questions.map((q, i) => {
+                const userAns = answers[i];
+                const correct = userAns === q.correct;
+                return (
+                  <div key={i} style={{display:"flex", alignItems:"flex-start", gap:12, padding:"12px 14px", borderRadius:10, border:`1px solid ${correct ? "#22c55e" : "var(--primary)"}`, background:correct ? "#f0fdf4" : "#fef2f2"}}>
+                    <div style={{fontSize:16, flexShrink:0, marginTop:1}}>{correct ? "✓" : "✗"}</div>
+                    <div style={{flex:1, minWidth:0}}>
+                      <div style={{fontSize:13.5, fontWeight:600, lineHeight:1.4, marginBottom:4}}>{q.text}</div>
+                      <div className="mono" style={{fontSize:12, color: correct ? "#166534" : "var(--primary)"}}>
+                        Sua resposta: <b>{(userAns||"—").toUpperCase()}</b>
+                        {!correct && <> · Certa: <b>{q.correct.toUpperCase()}</b></>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="row" style={{gap:10, marginTop:20, justifyContent:"flex-end"}}>
+              <button className="btn" onClick={reset}>Refazer</button>
+              <button className="btn primary" onClick={onClose}>Fechar</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
