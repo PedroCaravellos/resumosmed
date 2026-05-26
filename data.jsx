@@ -63,7 +63,7 @@ async function createProduct(p){
           contentType: p.file.type || "application/pdf",
           upsert: false,
         }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error("Upload timeout (60s)")), 60000))
+        new Promise((_, rej) => setTimeout(() => rej(new Error("Upload timeout (180s)")), 180000))
       ]);
       if (upErr) return { error: "Falha ao subir PDF: " + upErr.message };
     } catch (err) {
@@ -126,7 +126,7 @@ async function updateProduct(id, updates, newFile){
           contentType: newFile.type || "application/pdf",
           upsert: true,
         }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error("Upload timeout (60s)")), 60000))
+        new Promise((_, rej) => setTimeout(() => rej(new Error("Upload timeout (180s)")), 180000))
       ]);
       if (upErr) return { error: "Falha ao substituir PDF: " + upErr.message };
     } catch (err) {

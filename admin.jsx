@@ -155,8 +155,8 @@ function AdminUpload(){
     if (f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf")){
       setErr("Apenas arquivos PDF são aceitos."); return;
     }
-    if (f.size > 25 * 1024 * 1024){
-      setErr("Máximo 25MB no prototype (em produção pode ser maior)."); return;
+    if (f.size > 100 * 1024 * 1024){
+      setErr("Máximo 100MB por arquivo."); return;
     }
     setErr("");
     setFile({ name: f.name, size: f.size, type: f.type, _native: f });
@@ -243,7 +243,7 @@ function AdminUpload(){
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
                 </div>
                 <div className="display" style={{fontSize: 17, fontWeight: 600}}>Arraste o PDF aqui</div>
-                <div style={{color:"var(--muted)", fontSize: 13, marginTop: 4}}>ou clique pra escolher · máx 25MB</div>
+                <div style={{color:"var(--muted)", fontSize: 13, marginTop: 4}}>ou clique pra escolher · máx 100MB</div>
               </>
             ) : (
               <div style={{display:"flex", alignItems:"center", gap: 14, textAlign:"left"}}>
@@ -690,8 +690,8 @@ function EditProductModal({ product, onClose, onSaved }){
     if (f.type !== "application/pdf" && !f.name.toLowerCase().endsWith(".pdf")){
       setErr("Apenas arquivos PDF são aceitos."); return;
     }
-    if (f.size > 25 * 1024 * 1024){
-      setErr("Máximo 25MB."); return;
+    if (f.size > 100 * 1024 * 1024){
+      setErr("Máximo 100MB."); return;
     }
     setErr("");
     setNewFile(f);
