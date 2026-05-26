@@ -779,13 +779,33 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
           <button className="btn reader-nav-btn" disabled={page===0} onClick={()=>setPage(p=>Math.max(0,p-1))} style={{opacity: page===0?.4:1}}>← Anterior</button>
           <button className="btn primary reader-nav-btn" disabled={page===total-1} onClick={()=>setPage(p=>Math.min(total-1, p+1))} style={{opacity: page===total-1?.4:1}}>Próxima →</button>
         </div>
-        {r.quiz_json?.questions?.length > 0 && (
-          <button className="btn" onClick={()=>setShowQuiz(true)} style={{display:"flex", alignItems:"center", gap: 6, fontSize: 13}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>
-            Questionário
-          </button>
-        )}
       </footer>}
+
+      {/* Floating quiz button */}
+      {r.quiz_json?.questions?.length > 0 && !showQuiz && (
+        <button
+          onClick={()=>setShowQuiz(true)}
+          style={{
+            position:"absolute", bottom: 76, right: 28, zIndex: 90,
+            display:"flex", alignItems:"center", gap: 10,
+            padding:"13px 22px", borderRadius: 999, border:"none",
+            background:"var(--primary)", color:"var(--primary-ink)",
+            fontFamily:"inherit", fontSize: 14.5, fontWeight: 700,
+            cursor:"pointer", letterSpacing:".01em",
+            boxShadow:"0 4px 24px color-mix(in oklab, var(--primary) 45%, transparent)",
+            transition:"transform .15s ease, box-shadow .15s ease",
+          }}
+          onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-3px)"; e.currentTarget.style.boxShadow="0 8px 32px color-mix(in oklab, var(--primary) 55%, transparent)"; }}
+          onMouseLeave={e=>{ e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow="0 4px 24px color-mix(in oklab, var(--primary) 45%, transparent)"; }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/>
+            <circle cx="12" cy="17" r=".5" fill="currentColor"/>
+          </svg>
+          Questionário
+        </button>
+      )}
 
       {/* Quiz modal */}
       {showQuiz && <QuizModal quiz={r.quiz_json} title={r.title} onClose={()=>setShowQuiz(false)}/>}
