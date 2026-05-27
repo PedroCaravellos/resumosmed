@@ -77,7 +77,7 @@ function Hero({ go, copy }){
           </div>
           <div className="hero-stats" style={{display:"grid", gridTemplateColumns:"repeat(4, auto)", columnGap: 24, rowGap: 14, marginTop: 38, color:"var(--muted)", fontSize: 13, justifyContent:"start"}}>
             <StatItem n="26+" label="resumos" />
-            <StatItem n="R$ 29" label="a partir de" />
+            <StatItem n="R$ 10" label="a partir de" />
             <StatItem n="Online" label="leitor protegido" />
             <StatItem n="∞" label="acesso vitalício" />
           </div>
@@ -481,7 +481,7 @@ function Pricing({ go }){
       <SectionHead eyebrow="Preço" title={["Compre 1, compre 5,","compre o pack."]}/>
       <div data-reveal-stagger className="pricing-grid" style={{display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap: 16, marginTop: "var(--gap-lg)"}}>
         {[
-          { name:"Avulso", price:"R$ 29–59", desc:"Compre só o resumo que precisa. Sem assinatura, sem pegadinha.", btn:"Ver resumos", action:()=>go({name:"catalog"}), feats:["1 resumo em PDF", "Acesso vitalício", "Atualizações grátis", "Garantia de 7 dias"], soon: false },
+          { name:"Avulso", price:"R$ 10–59", desc:"Compre só o resumo que precisa. Sem assinatura, sem pegadinha.", btn:"Ver resumos", action:()=>go({name:"catalog"}), feats:["1 resumo em PDF", "Acesso vitalício", "Atualizações grátis", "Garantia de 7 dias"], soon: false },
           { name:"Pack por área", price:"Em breve", desc:"Todos os resumos de uma área (Cardio, Neuro, etc). Economize 35%.", btn:"Em breve", action: null, feats:["Todos os resumos da área", "Bônus: mapa mental", "Acesso vitalício", "Atualizações grátis"], highlight: true, soon: true },
           { name:"Combo completo", price:"Em breve", desc:"Todos os resumos do catálogo. Tudo, atualizado, pronto pros 6 anos.", btn:"Em breve", action: null, feats:["Catálogo completo", "Atualizações vitalícias", "Bônus: flashcards de revisão", "Suporte direto comigo"], soon: true },
         ].map((p, i)=>(
@@ -511,7 +511,7 @@ function FAQ(){
     { q:"Posso imprimir ou baixar?", a:"Não. É leitura online no nosso leitor protegido. Isso garante que o conteúdo não vaze e você consegue acessar de qualquer dispositivo a qualquer hora." },
     { q:"E se eu não gostar?", a:"7 dias de garantia, sem perguntas. Não gostou, devolvo. Simples assim." },
     { q:"Funciona pra residência?", a:"Sim! Os resumos têm conteúdos que caem no ENAMED, com os tópicos sinalizados ao longo do material. Feitos com base nas provas, simulados e referências consagradas como o Porto: Semiologia Médica; são ideais para estudantes da Veiga de Almeida, mas servem para qualquer faculdade, especialmente no ciclo básico. O catálogo cobre do 1º ao 6º período hoje, e cresce conforme avanço na graduação." },
-    { q:"Quem faz esses resumos?", a:"Eu, estudante de medicina. Comecei resumindo pra mim e pros amigos da turma. Agora estou abrindo pra quem quiser." },
+    { q:"Quem faz esses resumos?", a:"Larissa Oliveira, estudante de medicina da UVA (RJ), 6º período, representante do MEDgrupo — um dos melhores cursos preparatórios para residência do Brasil. Fui monitora de Medicina de Emergência e Urgência, Histologia e Semiologia Médica, e mantenho CR 8,8, com notas 10 em Diagnósticos por Imagem, Medicina Legal, Genética, entre outras. Comecei resumindo pra mim e pros amigos da turma. Agora estou abrindo pra quem quiser aprender junto — porque com o direcionamento certo, você gasta menos tempo decifrando o conteúdo e mais tempo fixando o que realmente cai na prova." },
   ];
   return (
     <section className="page" style={{paddingBottom:"var(--gap-xl)"}} id="faq">

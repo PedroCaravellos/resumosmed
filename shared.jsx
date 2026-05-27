@@ -17,6 +17,8 @@ const AREAS = [
   { id: "radio",   name: "Radiologia",         color: "var(--acc-3)" },
   { id: "fisio",   name: "Fisiologia",         color: "var(--acc-2)" },
   { id: "histo",   name: "Histologia",         color: "var(--acc-1)" },
+  { id: "semio",   name: "Semiologia Clínica", color: "var(--primary)" },
+  { id: "epi",     name: "Epidemiologia",      color: "var(--acc-3)" },
 ];
 
 const RESUMOS = [
@@ -187,6 +189,8 @@ const ILLU_FOR_AREA = {
   radio: Illu.Radio,
   fisio: Illu.Fisio,
   histo: Illu.Histo,
+  semio: Illu.Cross,
+  epi:   Illu.Brain,
 };
 
 // ─────────── Logo ───────────
