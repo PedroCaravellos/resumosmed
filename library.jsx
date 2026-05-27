@@ -226,6 +226,20 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
   const [flashOn, setFlashOn] = useStateLib(false);
   const [testAsUser, setTestAsUser] = useStateLib(false);
   const [showQuiz, setShowQuiz] = useStateLib(false);
+  const [quizData, setQuizData] = useStateLib(null);
+
+  useEffectLib(()=>{
+    if (r.quiz_json?.questions?.length) { setQuizData(r.quiz_json); return; }
+    if (r.quiz_tsx) {
+      try {
+        const compiled = Babel.transform(r.quiz_tsx, { presets:["react"], filename:"quiz.tsx" }).code;
+        const fn = new Function("React", `"use strict"; ${compiled}; return typeof QUIZ_DATA!=="undefined"?QUIZ_DATA:null;`);
+        const data = fn(React);
+        if (data?.questions?.length) setQuizData(data);
+      } catch(e){ console.error("[quiz/tsx]", e); }
+    }
+  }, [r.id]);
+
   // effAdmin: true só quando admin E não está no modo de teste
   const effAdmin = isAdmin && !testAsUser;
   const rootRef = useRefLib(null);
@@ -782,7 +796,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
       </footer>}
 
       {/* Floating quiz button */}
-      {r.quiz_json?.questions?.length > 0 && !showQuiz && (revealed || effAdmin) && (
+      {quizData?.questions?.length > 0 && !showQuiz && (revealed || effAdmin) && (
         <button
           onClick={()=>setShowQuiz(true)}
           style={{
@@ -808,7 +822,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
       )}
 
       {/* Quiz modal */}
-      {showQuiz && <QuizModal quiz={r.quiz_json} title={r.title} onClose={()=>setShowQuiz(false)}/>}
+      {showQuiz && <QuizModal quiz={quizData} title={r.title} onClose={()=>setShowQuiz(false)}/>}
 
       {/* Flash banner — shows when blocked action attempted */}
       {flashOn && (
@@ -1263,7 +1277,12 @@ function QuizModal({ quiz, title, onClose }){
                 {current+1} / {totalQ}
               </div>
               <div className="display" style={{fontSize:18, fontWeight:700, lineHeight:1.5, marginBottom:18, color:"var(--fg)"}}>
-                {q.text}
+                {q.content ? q.content : (
+                  <>
+                    {q.imageUrl && <img src={q.imageUrl} alt="" style={{width:"100%", borderRadius:10, marginBottom:14, display:"block", fontWeight:400}}/>}
+                    {q.text}
+                  </>
+                )}
               </div>
 
               {/* Options */}
