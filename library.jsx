@@ -156,11 +156,14 @@ function PdfReader({ id, go, currentUser }){
     setCanRead(null);
     (async () => {
       try {
-        const prod = await fetchProductById(id);
+        const [prod, freshPurchaseIds] = await Promise.all([
+          fetchProductById(id),
+          currentUser && !isAdmin ? fetchUserPurchaseIds(currentUser.id) : Promise.resolve([]),
+        ]);
         if (!mounted) return;
         setR(prod);
         if (prod?.file_path){
-          const access = isAdmin || (currentUser && (currentUser.purchases||[]).includes(prod.id));
+          const access = isAdmin || (currentUser && freshPurchaseIds.includes(prod.id));
           if (mounted) setCanRead(access);
           if (access){
             try {
@@ -178,7 +181,7 @@ function PdfReader({ id, go, currentUser }){
       }
     })();
     return ()=>{ mounted = false; };
-  }, [id, currentUser?.id, currentUser?.purchases?.length]);
+  }, [id, currentUser?.id]);
 
   if (!currentUser) {
     return (
