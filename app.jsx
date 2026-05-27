@@ -1,6 +1,6 @@
 // app.jsx — App shell with routing, auth, tweaks
 
-const { useState: useStateA, useEffect: useEffectA, useCallback: useCallbackA } = React;
+const { useState: useStateA, useEffect: useEffectA, useCallback: useCallbackA, useRef: useRefA } = React;
 
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "palette": ["#E84A6B", "#FFD66B", "#8FCB6E", "#7AB6F0"],
@@ -63,6 +63,9 @@ function App(){
 
   const [currentUser, setCurrentUser] = useStateA(null);
   const [authReady, setAuthReady] = useStateA(false);
+  // Ref para ler o currentUser atual dentro do closure do onAuthStateChange
+  const currentUserRef = useRefA(null);
+  useEffectA(()=>{ currentUserRef.current = currentUser; }, [currentUser]);
 
   // Auth: bootstrap session + subscribe to changes
   useEffectA(()=>{
@@ -91,10 +94,13 @@ function App(){
 
     const { data: sub } = sb.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
-      if (!session){ setCurrentUser(null); setAuthReady(true); return; }
-      // TOKEN_REFRESHED: sessão renovada automaticamente — não precisa recarregar perfil
-      // PASSWORD_RECOVERY: ResetPassword cuida do fluxo
+      // Só limpa o usuário em logout explícito — nunca em eventos transitórios
+      if (!session){ if (event === "SIGNED_OUT") setCurrentUser(null); setAuthReady(true); return; }
+      // TOKEN_REFRESHED e PASSWORD_RECOVERY não precisam recarregar perfil
       if (event === "TOKEN_REFRESHED" || event === "PASSWORD_RECOVERY") return;
+      // SIGNED_IN e INITIAL_SESSION disparam no alt-tab e no foco da aba — se já temos
+      // um usuário carregado, ignorar para evitar flash de "acesso restrito"
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && currentUserRef.current) return;
       try {
         const u = await loadProfileFor(session.user);
         if (!mounted) return;
