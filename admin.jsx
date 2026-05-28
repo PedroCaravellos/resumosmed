@@ -165,7 +165,7 @@ function AdminUpload(){
         setQuizErr("Formato não suportado. Use .json ou .tsx");
       }
     };
-    reader.readAsText(f);
+    reader.readAsText(f, "UTF-8");
   };
 
   const handleFile = (f) => {
@@ -828,7 +828,7 @@ function EditProductModal({ product, onClose, onSaved }){
         setQuizErr("Formato não suportado. Use .json ou .tsx");
       }
     };
-    reader.readAsText(f);
+    reader.readAsText(f, "UTF-8");
   };
 
   // Close on Esc
