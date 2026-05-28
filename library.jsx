@@ -235,9 +235,9 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
     if (r.quiz_json?.questions?.length) { setQuizData(r.quiz_json); return; }
     if (r.quiz_tsx) {
       try {
-        const src = r.quiz_tsx.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n").replace(/\bexport\s+default\s+/g, "").replace(/\bexport\s+/g, "");
+        const src = r.quiz_tsx.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n").replace(/\bexport\s+default\s+/g, "var _qdefault_ = ").replace(/\bexport\s+/g, "");
         const compiled = Babel.transform(src, { presets:["react"], filename:"quiz.tsx" }).code;
-        const fn = new Function("React", `"use strict"; ${compiled}; return typeof QUIZ_DATA!=="undefined"?QUIZ_DATA:null;`);
+        const fn = new Function("React", `"use strict"; ${compiled}; if(typeof QUIZ_DATA!=="undefined")return QUIZ_DATA; if(typeof _qdefault_!=="undefined")return _qdefault_; return null;`);
         const data = fn(React);
         if (data?.questions?.length) setQuizData(data);
       } catch(e){ console.error("[quiz/tsx]", e); }

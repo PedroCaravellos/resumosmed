@@ -153,9 +153,9 @@ function AdminUpload(){
         } catch { setQuizErr("Arquivo não é um JSON válido."); }
       } else if (ext === "tsx" || ext === "jsx") {
         try {
-          const src = content.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n").replace(/\bexport\s+default\s+/g, "").replace(/\bexport\s+/g, "");
+          const src = content.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n").replace(/\bexport\s+default\s+/g, "var _qdefault_ = ").replace(/\bexport\s+/g, "");
           const compiled = Babel.transform(src, { presets:["react"], filename:"quiz.tsx" }).code;
-          const fn = new Function("React", `"use strict"; ${compiled}; return typeof QUIZ_DATA!=="undefined"?QUIZ_DATA:null;`);
+          const fn = new Function("React", `"use strict"; ${compiled}; if(typeof QUIZ_DATA!=="undefined")return QUIZ_DATA; if(typeof _qdefault_!=="undefined")return _qdefault_; return null;`);
           const data = fn(React);
           if (!data?.questions?.length){ setQuizErr("TSX inválido: QUIZ_DATA não encontrado ou 'questions' vazio."); return; }
           setQuizTsx(content); setQuizJson(null);
@@ -697,9 +697,9 @@ function EditProductModal({ product, onClose, onSaved }){
         } catch { setQuizErr("Arquivo não é um JSON válido."); }
       } else if (ext === "tsx" || ext === "jsx") {
         try {
-          const src = content.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n").replace(/\bexport\s+default\s+/g, "").replace(/\bexport\s+/g, "");
+          const src = content.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n").replace(/\bexport\s+default\s+/g, "var _qdefault_ = ").replace(/\bexport\s+/g, "");
           const compiled = Babel.transform(src, { presets:["react"], filename:"quiz.tsx" }).code;
-          const fn = new Function("React", `"use strict"; ${compiled}; return typeof QUIZ_DATA!=="undefined"?QUIZ_DATA:null;`);
+          const fn = new Function("React", `"use strict"; ${compiled}; if(typeof QUIZ_DATA!=="undefined")return QUIZ_DATA; if(typeof _qdefault_!=="undefined")return _qdefault_; return null;`);
           const data = fn(React);
           if (!data?.questions?.length){ setQuizErr("TSX inválido: QUIZ_DATA não encontrado ou 'questions' vazio."); return; }
           setQuizTsx(content); setQuizJson(null);
