@@ -399,6 +399,7 @@ function AdminProducts({ go }){
   const [products, setProducts] = useStateAdmin([]);
   const [loading, setLoading] = useStateAdmin(true);
   const [editing, setEditing] = useStateAdmin(null);
+  const [editingQuiz, setEditingQuiz] = useStateAdmin(null);
   const [confirmDelete, setConfirmDelete] = useStateAdmin(null); // { id, title }
   const [deleting, setDeleting] = useStateAdmin(false);
   const [deleteErr, setDeleteErr] = useStateAdmin("");
@@ -478,6 +479,11 @@ function AdminProducts({ go }){
                       <IconBtn title="Abrir no leitor" onClick={()=>go({name:"reader", id:p.id})}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                       </IconBtn>
+                      {p.quiz_json?.questions?.length > 0 && (
+                        <IconBtn title="Editar imagens do quiz" onClick={()=>setEditingQuiz(p)}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                        </IconBtn>
+                      )}
                       <IconBtn title="Editar" onClick={()=>setEditing(p)}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       </IconBtn>
@@ -497,6 +503,7 @@ function AdminProducts({ go }){
         )}
       </div>
       {editing && <EditProductModal product={editing} onClose={()=>setEditing(null)} onSaved={onSaved}/>}
+      {editingQuiz && <QuizEditorModal product={editingQuiz} onClose={()=>setEditingQuiz(null)} onSaved={(updated)=>{ setProducts(ps=>ps.map(p=>p.id===updated.id?{...p,quiz_json:updated.quiz_json}:p)); setEditingQuiz(null); }}/>}
 
       {confirmDelete && (
         <div style={{position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,.45)", backdropFilter:"blur(4px)", WebkitBackdropFilter:"blur(4px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px"}}
@@ -653,6 +660,119 @@ function AdminHistory(){
 
 function th(){ return { padding:"14px 18px", fontWeight: 600 }; }
 function td(){ return { padding:"14px 18px", verticalAlign:"middle" }; }
+
+// ─────────── Quiz Editor Modal ───────────
+function QuizEditorModal({ product, onClose, onSaved }){
+  const [questions, setQuestions] = useStateAdmin(() => JSON.parse(JSON.stringify(product.quiz_json?.questions || [])));
+  const [uploading, setUploading] = useStateAdmin({}); // { [idx]: true }
+  const [uploadErr, setUploadErr] = useStateAdmin({});
+  const [saving, setSaving] = useStateAdmin(false);
+  const [saveErr, setSaveErr] = useStateAdmin("");
+
+  useEffectAdmin(()=>{
+    const k = (e)=>{ if (e.key==="Escape" && !saving) onClose(); };
+    document.addEventListener("keydown", k);
+    return ()=>document.removeEventListener("keydown", k);
+  }, [saving]);
+
+  const handleImageFile = async (idx, file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")){ setUploadErr(e=>({...e,[idx]:"Apenas imagens (JPG, PNG, WebP)."})); return; }
+    if (file.size > 8 * 1024 * 1024){ setUploadErr(e=>({...e,[idx]:"Máximo 8MB por imagem."})); return; }
+    setUploadErr(e=>({...e,[idx]:""}));
+    setUploading(u=>({...u,[idx]:true}));
+    const r = await uploadQuizImage(product.id, questions[idx].id ?? (idx+1), file);
+    setUploading(u=>({...u,[idx]:false}));
+    if (r.error){ setUploadErr(e=>({...e,[idx]:"Erro: "+r.error})); return; }
+    setQuestions(qs => qs.map((q,i) => i===idx ? {...q, imageUrl: r.url} : q));
+  };
+
+  const removeImage = (idx) => setQuestions(qs => qs.map((q,i) => { if(i!==idx) return q; const {imageUrl,...rest}=q; return rest; }));
+
+  const save = async () => {
+    setSaving(true); setSaveErr("");
+    const newQuiz = { ...product.quiz_json, questions };
+    const r = await saveQuizJson(product.id, newQuiz);
+    setSaving(false);
+    if (r.error){ setSaveErr("Erro ao salvar: "+r.error); return; }
+    onSaved({ ...product, quiz_json: newQuiz });
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,.45)",backdropFilter:"blur(4px)",WebkitBackdropFilter:"blur(4px)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"40px 20px",overflowY:"auto",animation:"pageIn .2s ease"}}
+      onClick={(e)=>{ if(e.target===e.currentTarget && !saving) onClose(); }}>
+      <div style={{background:"var(--surface)",borderRadius:"var(--radius-lg)",border:"1px solid var(--line)",boxShadow:"var(--shadow-pop)",width:"100%",maxWidth:700,overflow:"hidden",animation:"pageIn .25s cubic-bezier(.2,.7,.1,1)"}}>
+
+        {/* Header */}
+        <div style={{padding:"20px 28px 14px",borderBottom:"1px solid var(--line)",display:"flex",alignItems:"center",justifyContent:"space-between",gap:16}}>
+          <div>
+            <div className="mono" style={{fontSize:11,textTransform:"uppercase",letterSpacing:".1em",color:"var(--primary)",marginBottom:4}}>Imagens do questionário</div>
+            <div className="display" style={{fontSize:20,fontWeight:700,lineHeight:1.15}}>{product.quiz_json?.title || product.title}</div>
+            <div style={{fontSize:13,color:"var(--muted)",marginTop:3}}>{questions.length} perguntas</div>
+          </div>
+          <button onClick={()=>!saving&&onClose()} style={{width:34,height:34,borderRadius:999,border:"1px solid var(--line)",background:"var(--bg)",color:"var(--fg)",display:"inline-flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        {/* Question list */}
+        <div style={{padding:"16px 28px",display:"flex",flexDirection:"column",gap:10,maxHeight:"60vh",overflowY:"auto"}}>
+          {questions.map((q, idx) => (
+            <div key={idx} style={{display:"flex",alignItems:"flex-start",gap:14,padding:"14px 16px",borderRadius:12,border:"1px solid var(--line)",background:"var(--bg)"}}>
+
+              {/* Question number + text */}
+              <div style={{width:28,height:28,borderRadius:8,background:"var(--surface)",border:"1px solid var(--line-strong)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"var(--font-mono)",fontSize:11,fontWeight:700,color:"var(--muted)",flexShrink:0}}>
+                {idx+1}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13.5,fontWeight:600,lineHeight:1.45,color:"var(--fg)",overflow:"hidden",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>
+                  {q.text}
+                </div>
+
+                {/* Image preview or upload */}
+                <div style={{marginTop:10}}>
+                  {q.imageUrl ? (
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <img src={q.imageUrl} alt="" style={{width:80,height:54,objectFit:"cover",borderRadius:8,border:"1px solid var(--line)",flexShrink:0}}
+                        onError={e=>{ e.target.style.display="none"; }}/>
+                      <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                        <label style={{cursor:"pointer"}}>
+                          <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>handleImageFile(idx, e.target.files[0])} disabled={uploading[idx]}/>
+                          <span className="btn" style={{fontSize:11,padding:"4px 10px",display:"inline-block"}}>
+                            {uploading[idx] ? "Enviando…" : "Substituir"}
+                          </span>
+                        </label>
+                        <button type="button" className="btn" onClick={()=>removeImage(idx)} style={{fontSize:11,padding:"4px 10px",color:"var(--primary)",borderColor:"var(--primary)"}}>Remover</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label style={{display:"inline-flex",alignItems:"center",gap:7,padding:"7px 12px",borderRadius:8,border:"1.5px dashed var(--line-strong)",cursor:"pointer",background:"var(--surface)",fontSize:12.5,color:"var(--muted)"}}>
+                      <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>handleImageFile(idx, e.target.files[0])} disabled={uploading[idx]}/>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                      {uploading[idx] ? "Enviando…" : "Adicionar imagem"}
+                    </label>
+                  )}
+                  {uploadErr[idx] && <div style={{fontSize:12,color:"var(--primary)",marginTop:5,fontWeight:600}}>{uploadErr[idx]}</div>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{padding:"14px 28px 20px",borderTop:"1px solid var(--line)",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+          {saveErr ? <div style={{fontSize:12.5,color:"var(--primary)",fontWeight:600}}>{saveErr}</div> : <div style={{fontSize:13,color:"var(--muted)"}}>Imagens são salvas no Supabase Storage e ficam públicas.</div>}
+          <div className="row" style={{gap:8,flexShrink:0}}>
+            <button type="button" className="btn" onClick={onClose} disabled={saving}>Cancelar</button>
+            <button type="button" className="btn primary" onClick={save} disabled={saving} style={{opacity:saving?.7:1}}>
+              {saving ? "Salvando…" : "Salvar alterações"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─────────── Edit Product Modal ───────────
 function EditProductModal({ product, onClose, onSaved }){

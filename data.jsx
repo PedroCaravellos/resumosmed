@@ -209,6 +209,19 @@ async function createPurchases(user, items){
   return { purchases: res.data };
 }
 
+// ─────────── Quiz image upload ───────────
+async function uploadQuizImage(productId, questionId, file){
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const path = `${productId}/${questionId}.${ext}`;
+  const { error } = await Promise.race([
+    sb.storage.from("quiz-images").upload(path, file, { contentType: file.type || "image/jpeg", upsert: true }),
+    new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 30000)),
+  ]);
+  if (error) return { error: error.message };
+  const { data } = sb.storage.from("quiz-images").getPublicUrl(path);
+  return { url: data.publicUrl };
+}
+
 // ─────────── Storage (signed URLs) ───────────
 async function getSignedPdfUrl(filePath, expiresIn = 60*60){
   if (!filePath) return null;
@@ -431,7 +444,7 @@ Object.assign(window, {
   normalizeProduct,
   logEvent, hasAcceptedTerms, acceptTerms, saveDeviceFingerprint,
   fetchUserActivity, fetchUserLogs, setUserBan,
-  adminGrantPurchase, adminRevokePurchase, saveQuizJson, saveQuizTsx,
+  adminGrantPurchase, adminRevokePurchase, saveQuizJson, saveQuizTsx, uploadQuizImage,
   fetchUserTickets, submitSupportTicket, fetchAllTickets, resolveTicket, deleteTicket,
   fetchTicketReplies, addTicketReply,
   Q_TIMEOUT, queryWithTimeout, safe,
