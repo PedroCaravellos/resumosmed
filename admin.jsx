@@ -153,7 +153,7 @@ function AdminUpload(){
         } catch { setQuizErr("Arquivo não é um JSON válido."); }
       } else if (ext === "tsx" || ext === "jsx") {
         try {
-          const src = content.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n");
+          const src = content.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n").replace(/\bexport\s+default\s+/g, "").replace(/\bexport\s+/g, "");
           const compiled = Babel.transform(src, { presets:["react"], filename:"quiz.tsx" }).code;
           const fn = new Function("React", `"use strict"; ${compiled}; return typeof QUIZ_DATA!=="undefined"?QUIZ_DATA:null;`);
           const data = fn(React);
@@ -697,7 +697,7 @@ function EditProductModal({ product, onClose, onSaved }){
         } catch { setQuizErr("Arquivo não é um JSON válido."); }
       } else if (ext === "tsx" || ext === "jsx") {
         try {
-          const src = content.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n");
+          const src = content.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n").replace(/\bexport\s+default\s+/g, "").replace(/\bexport\s+/g, "");
           const compiled = Babel.transform(src, { presets:["react"], filename:"quiz.tsx" }).code;
           const fn = new Function("React", `"use strict"; ${compiled}; return typeof QUIZ_DATA!=="undefined"?QUIZ_DATA:null;`);
           const data = fn(React);
