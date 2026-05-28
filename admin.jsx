@@ -153,7 +153,8 @@ function AdminUpload(){
         } catch { setQuizErr("Arquivo não é um JSON válido."); }
       } else if (ext === "tsx" || ext === "jsx") {
         try {
-          const compiled = Babel.transform(content, { presets:["react"], filename:"quiz.tsx" }).code;
+          const src = content.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n");
+          const compiled = Babel.transform(src, { presets:["react"], filename:"quiz.tsx" }).code;
           const fn = new Function("React", `"use strict"; ${compiled}; return typeof QUIZ_DATA!=="undefined"?QUIZ_DATA:null;`);
           const data = fn(React);
           if (!data?.questions?.length){ setQuizErr("TSX inválido: QUIZ_DATA não encontrado ou 'questions' vazio."); return; }
@@ -696,7 +697,8 @@ function EditProductModal({ product, onClose, onSaved }){
         } catch { setQuizErr("Arquivo não é um JSON válido."); }
       } else if (ext === "tsx" || ext === "jsx") {
         try {
-          const compiled = Babel.transform(content, { presets:["react"], filename:"quiz.tsx" }).code;
+          const src = content.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n");
+          const compiled = Babel.transform(src, { presets:["react"], filename:"quiz.tsx" }).code;
           const fn = new Function("React", `"use strict"; ${compiled}; return typeof QUIZ_DATA!=="undefined"?QUIZ_DATA:null;`);
           const data = fn(React);
           if (!data?.questions?.length){ setQuizErr("TSX inválido: QUIZ_DATA não encontrado ou 'questions' vazio."); return; }

@@ -235,7 +235,8 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
     if (r.quiz_json?.questions?.length) { setQuizData(r.quiz_json); return; }
     if (r.quiz_tsx) {
       try {
-        const compiled = Babel.transform(r.quiz_tsx, { presets:["react"], filename:"quiz.tsx" }).code;
+        const src = r.quiz_tsx.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n");
+        const compiled = Babel.transform(src, { presets:["react"], filename:"quiz.tsx" }).code;
         const fn = new Function("React", `"use strict"; ${compiled}; return typeof QUIZ_DATA!=="undefined"?QUIZ_DATA:null;`);
         const data = fn(React);
         if (data?.questions?.length) setQuizData(data);
