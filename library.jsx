@@ -248,7 +248,6 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
 
   useEffectLib(()=>{
     if (r.quiz_json?.questions?.length) { setQuizData(r.quiz_json); return; }
-    // quiz_tsx removido por segurança — execução de código arbitrário do banco não é permitida
   }, [r.id]);
 
   // effAdmin: true só quando admin E não está no modo de teste

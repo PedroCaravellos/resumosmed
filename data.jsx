@@ -26,7 +26,7 @@ async function safe(label, fn, fallback){
 async function fetchProducts(){
   const res = await safe("fetchProducts", () => sb
     .from("products")
-    .select("id,title,area,price,pages,topics,updated,file_path,file_name,created_at,preview,active,quiz_json,quiz_tsx")
+    .select("id,title,area,price,pages,topics,updated,file_path,file_name,created_at,preview,active,quiz_json")
     .eq("active", true)
     .order("created_at", { ascending: false }),
     { data: [], error: null }
@@ -39,7 +39,7 @@ async function fetchProductById(id){
   if (!id) return null;
   const res = await safe("fetchProductById", () => sb
     .from("products")
-    .select("id,title,area,price,pages,topics,updated,file_path,file_name,preview,quiz_json,quiz_tsx")
+    .select("id,title,area,price,pages,topics,updated,file_path,file_name,preview,quiz_json")
     .eq("id", id).maybeSingle(),
     { data: null, error: null }
   );
@@ -81,7 +81,6 @@ async function createProduct(p){
     updated: month, file_path, file_name,
     preview: p.preview || null,
     quiz_json: p.quiz_json || null,
-    quiz_tsx: p.quiz_tsx || null,
   };
   const res = await safe("createProduct/insert", () => sb.from("products").insert(row).select().single(), { data: null, error: { message: "timeout" } });
   if (res?.error){
@@ -112,7 +111,6 @@ async function updateProduct(id, updates, newFile){
   if (updates.topics  != null) patch.topics  = Array.isArray(updates.topics) ? updates.topics : [];
   if (updates.preview != null) patch.preview = updates.preview;
   if (updates.quiz_json !== undefined) patch.quiz_json = updates.quiz_json;
-  if (updates.quiz_tsx  !== undefined) patch.quiz_tsx  = updates.quiz_tsx;
 
   if (newFile){
     if (newFile.type !== "application/pdf") {
@@ -354,14 +352,7 @@ async function saveQuizJson(productId, quizJson){
   return { ok: true };
 }
 
-async function saveQuizTsx(productId, quizTsx){
-  const res = await safe("saveQuizTsx", () =>
-    sb.from("products").update({ quiz_tsx: quizTsx }).eq("id", productId).select("id"),
-    { error: { message: "timeout" } }
-  );
-  if (res?.error) return { error: res.error.message };
-  return { ok: true };
-}
+
 
 // ─────────── Support Tickets ───────────
 async function fetchUserTickets(userId){
@@ -449,7 +440,7 @@ Object.assign(window, {
   normalizeProduct,
   logEvent, hasAcceptedTerms, acceptTerms, saveDeviceFingerprint,
   fetchUserActivity, fetchUserLogs, setUserBan,
-  adminGrantPurchase, adminRevokePurchase, saveQuizJson, saveQuizTsx, uploadQuizImage,
+  adminGrantPurchase, adminRevokePurchase, saveQuizJson, uploadQuizImage,
   fetchUserTickets, submitSupportTicket, fetchAllTickets, resolveTicket, deleteTicket,
   fetchTicketReplies, addTicketReply,
   Q_TIMEOUT, queryWithTimeout, safe,

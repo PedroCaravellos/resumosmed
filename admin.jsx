@@ -126,7 +126,6 @@ function AdminUpload(){
   const [err, setErr] = useStateAdmin("");
   const [busy, setBusy] = useStateAdmin(false);
   const [quizJson, setQuizJson] = useStateAdmin(null);
-  const [quizTsx, setQuizTsx] = useStateAdmin(null);
   const [quizPreview, setQuizPreview] = useStateAdmin(null);
   const [quizErr, setQuizErr] = useStateAdmin("");
   const quizFileRef = useRefAdmin(null);
@@ -148,21 +147,11 @@ function AdminUpload(){
           }
           const bad = parsed.questions.find(q => !q.options || !q.correct || !q.explanation);
           if (bad){ setQuizErr("Pergunta inválida: cada item precisa ter 'options', 'correct' e 'explanation'."); return; }
-          setQuizJson(parsed); setQuizTsx(null);
-          setQuizPreview({ type:"json", title: parsed.title, count: parsed.questions.length });
+          setQuizJson(parsed);
+          setQuizPreview({ title: parsed.title, count: parsed.questions.length });
         } catch { setQuizErr("Arquivo não é um JSON válido."); }
-      } else if (ext === "tsx" || ext === "jsx") {
-        try {
-          const src = content.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n").replace(/\bexport\s+default\s+/g, "var _qdefault_ = ").replace(/\bexport\s+/g, "");
-          const compiled = Babel.transform(src, { presets:["react"], filename:"quiz.tsx" }).code;
-          const fn = new Function("React", `"use strict"; ${compiled}; if(typeof QUIZ_DATA!=="undefined")return QUIZ_DATA; if(typeof _qdefault_!=="undefined")return _qdefault_; return null;`);
-          const data = fn(React);
-          if (!data?.questions?.length){ setQuizErr("TSX inválido: QUIZ_DATA não encontrado ou 'questions' vazio."); return; }
-          setQuizTsx(content); setQuizJson(null);
-          setQuizPreview({ type:"tsx", title: data.title, count: data.questions.length });
-        } catch(e){ setQuizErr("Erro ao compilar TSX: " + (e.message||e)); }
       } else {
-        setQuizErr("Formato não suportado. Use .json ou .tsx");
+        setQuizErr("Formato não suportado. Use .json");
       }
     };
     reader.readAsText(f, "UTF-8");
@@ -206,7 +195,6 @@ function AdminUpload(){
       file: file._native,
       preview: Object.values(preview).some(Boolean) ? preview : null,
       quiz_json: quizJson || null,
-      quiz_tsx: quizTsx || null,
     });
     setBusy(false);
     if (r.error){ setErr("Falha ao publicar: " + r.error); return; }
@@ -337,18 +325,18 @@ function AdminUpload(){
             </div>
             {!quizPreview ? (
               <label style={{display:"flex", alignItems:"center", gap: 10, padding:"12px 14px", borderRadius: 10, border:"1.5px dashed var(--line-strong)", cursor:"pointer", background:"var(--surface)"}}>
-                <input ref={quizFileRef} type="file" accept="application/json,.json,.tsx,.jsx" style={{display:"none"}} onChange={e=>handleQuizFile(e.target.files[0])}/>
+                <input ref={quizFileRef} type="file" accept="application/json,.json" style={{display:"none"}} onChange={e=>handleQuizFile(e.target.files[0])}/>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
-                <span style={{fontSize: 13.5, color:"var(--muted)"}}>Clique para escolher .json ou .tsx</span>
+                <span style={{fontSize: 13.5, color:"var(--muted)"}}>Clique para escolher .json</span>
               </label>
             ) : (
               <div style={{display:"flex", alignItems:"center", gap: 12, padding:"12px 14px", background:"color-mix(in oklab, var(--acc-2) 18%, var(--bg))", borderRadius: 10, border:"1px solid var(--acc-2)"}}>
                 <div style={{fontSize: 20}}>✓</div>
                 <div style={{flex: 1}}>
                   <div style={{fontWeight: 600, fontSize: 13.5}}>{quizPreview.count} perguntas carregadas</div>
-                  <div className="mono" style={{fontSize: 11, color:"var(--muted)"}}>{quizPreview.title} · {quizPreview.type === "tsx" ? "TSX" : "JSON"}</div>
+                  <div className="mono" style={{fontSize: 11, color:"var(--muted)"}}>{quizPreview.title} · JSON</div>
                 </div>
-                <button type="button" className="btn ghost" style={{padding: 6}} onClick={()=>{ setQuizJson(null); setQuizTsx(null); setQuizPreview(null); if (quizFileRef.current) quizFileRef.current.value=""; }}>
+                <button type="button" className="btn ghost" style={{padding: 6}} onClick={()=>{ setQuizJson(null); setQuizPreview(null); if (quizFileRef.current) quizFileRef.current.value=""; }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M18 6L6 18M6 6l12 12"/></svg>
                 </button>
               </div>
@@ -465,7 +453,7 @@ function AdminProducts({ go }){
                         <div style={{fontWeight: 600}}>{p.title}</div>
                         <div className="row" style={{gap: 6, marginTop: 3, flexWrap:"wrap"}}>
                           {p._custom && <div className="mono" style={{fontSize: 10, color:"var(--acc-2)"}}>★ Adicionado por você</div>}
-                          {(p.quiz_json?.questions?.length > 0 || p.quiz_tsx) && <div className="mono" style={{fontSize: 10, color:"var(--acc-3)"}}>✓ {p.quiz_json?.questions?.length || "?"} perguntas{p.quiz_tsx ? " · TSX" : ""}</div>}
+                          {p.quiz_json?.questions?.length > 0 && <div className="mono" style={{fontSize: 10, color:"var(--acc-3)"}}>✓ {p.quiz_json.questions.length} perguntas</div>}
                         </div>
                       </div>
                     </div>
@@ -794,7 +782,6 @@ function EditProductModal({ product, onClose, onSaved }){
   const [err, setErr] = useStateAdmin("");
   const [busy, setBusy] = useStateAdmin(false);
   const [quizJson, setQuizJson] = useStateAdmin(product.quiz_json || null);
-  const [quizTsx, setQuizTsx] = useStateAdmin(product.quiz_tsx || null);
   const [quizErr, setQuizErr] = useStateAdmin("");
   const editQuizRef = useRefAdmin(null);
 
@@ -813,19 +800,10 @@ function EditProductModal({ product, onClose, onSaved }){
           }
           const bad = parsed.questions.find(q => !q.options || !q.correct || !q.explanation);
           if (bad){ setQuizErr("Pergunta inválida: cada item precisa ter 'options', 'correct' e 'explanation'."); return; }
-          setQuizJson(parsed); setQuizTsx(null);
+          setQuizJson(parsed);
         } catch { setQuizErr("Arquivo não é um JSON válido."); }
-      } else if (ext === "tsx" || ext === "jsx") {
-        try {
-          const src = content.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n").replace(/\bexport\s+default\s+/g, "var _qdefault_ = ").replace(/\bexport\s+/g, "");
-          const compiled = Babel.transform(src, { presets:["react"], filename:"quiz.tsx" }).code;
-          const fn = new Function("React", `"use strict"; ${compiled}; if(typeof QUIZ_DATA!=="undefined")return QUIZ_DATA; if(typeof _qdefault_!=="undefined")return _qdefault_; return null;`);
-          const data = fn(React);
-          if (!data?.questions?.length){ setQuizErr("TSX inválido: QUIZ_DATA não encontrado ou 'questions' vazio."); return; }
-          setQuizTsx(content); setQuizJson(null);
-        } catch(e){ setQuizErr("Erro ao compilar TSX: " + (e.message||e)); }
       } else {
-        setQuizErr("Formato não suportado. Use .json ou .tsx");
+        setQuizErr("Formato não suportado. Use .json");
       }
     };
     reader.readAsText(f, "UTF-8");
@@ -872,7 +850,6 @@ function EditProductModal({ product, onClose, onSaved }){
       topics,
       preview,
       quiz_json: quizJson,
-      quiz_tsx: quizTsx,
     }, newFile);
     setBusy(false);
     if (r.error){ setErr("Falha ao salvar: " + r.error); return; }
@@ -1015,39 +992,30 @@ function EditProductModal({ product, onClose, onSaved }){
 
           {/* Quiz section */}
           {(() => {
-            const hasQuiz = quizJson || quizTsx;
+            const hasQuiz = !!quizJson;
             const quizLabel = quizJson
               ? `${quizJson.questions?.length || 0} perguntas · JSON · "${quizJson.title}"`
-              : quizTsx ? "TSX carregado" : "JSON ou TSX com perguntas gerado pelo Claude. Deixe vazio para adicionar depois.";
+              : "Questionário JSON gerado pelo Claude. Deixe vazio para adicionar depois.";
             return (
               <Field label="Questionário" hint={quizLabel}>
                 {hasQuiz ? (
                   <div style={{display:"flex", alignItems:"center", gap: 12, padding:"12px 14px", background:"color-mix(in oklab, var(--acc-2) 18%, var(--bg))", borderRadius: 10, border:"1px solid var(--acc-2)"}}>
                     <div style={{fontSize: 18}}>✓</div>
                     <div style={{flex: 1}}>
-                      {quizJson ? (
-                        <>
-                          <div style={{fontWeight: 600, fontSize: 13.5}}>{quizJson.questions?.length || 0} perguntas</div>
-                          <div className="mono" style={{fontSize: 11, color:"var(--muted)"}}>{quizJson.title} · JSON</div>
-                        </>
-                      ) : (
-                        <>
-                          <div style={{fontWeight: 600, fontSize: 13.5}}>Questionário TSX</div>
-                          <div className="mono" style={{fontSize: 11, color:"var(--muted)"}}>com suporte a imagens</div>
-                        </>
-                      )}
+                      <div style={{fontWeight: 600, fontSize: 13.5}}>{quizJson.questions?.length || 0} perguntas</div>
+                      <div className="mono" style={{fontSize: 11, color:"var(--muted)"}}>{quizJson.title} · JSON</div>
                     </div>
                     <label style={{cursor:"pointer"}}>
-                      <input ref={editQuizRef} type="file" accept="application/json,.json,.tsx,.jsx" style={{display:"none"}} onChange={e=>handleQuizFile(e.target.files[0])}/>
+                      <input ref={editQuizRef} type="file" accept="application/json,.json" style={{display:"none"}} onChange={e=>handleQuizFile(e.target.files[0])}/>
                       <span className="btn" style={{fontSize: 12, padding:"6px 10px"}}>Substituir</span>
                     </label>
-                    <button type="button" className="btn" onClick={()=>{ setQuizJson(null); setQuizTsx(null); if (editQuizRef.current) editQuizRef.current.value=""; }} style={{fontSize: 12, padding:"6px 10px", color:"var(--primary)", borderColor:"var(--primary)"}}>Remover</button>
+                    <button type="button" className="btn" onClick={()=>{ setQuizJson(null); if (editQuizRef.current) editQuizRef.current.value=""; }} style={{fontSize: 12, padding:"6px 10px", color:"var(--primary)", borderColor:"var(--primary)"}}>Remover</button>
                   </div>
                 ) : (
                   <label style={{display:"flex", alignItems:"center", gap: 10, padding:"12px 14px", borderRadius: 10, border:"1.5px dashed var(--line-strong)", cursor:"pointer", background:"var(--bg)"}}>
-                    <input ref={editQuizRef} type="file" accept="application/json,.json,.tsx,.jsx" style={{display:"none"}} onChange={e=>handleQuizFile(e.target.files[0])}/>
+                    <input ref={editQuizRef} type="file" accept="application/json,.json" style={{display:"none"}} onChange={e=>handleQuizFile(e.target.files[0])}/>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
-                    <span style={{fontSize: 13.5, color:"var(--muted)"}}>Clique para escolher .json ou .tsx</span>
+                    <span style={{fontSize: 13.5, color:"var(--muted)"}}>Clique para escolher .json</span>
                   </label>
                 )}
                 {quizErr && <div style={{fontSize: 12.5, color:"var(--primary)", fontWeight: 600, marginTop: 8}}>{quizErr}</div>}
