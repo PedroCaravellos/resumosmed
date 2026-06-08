@@ -3,13 +3,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "content-type, authorization, x-client-info, apikey",
+  "Access-Control-Allow-Headers": "content-type, authorization, x-client-info, apikey, x-correlation-id",
 };
+
+function log(level: "info" | "warn" | "error", event: string, data: Record<string, unknown> = {}) {
+  console.log(JSON.stringify({ level, ts: new Date().toISOString(), service: "save-device-fingerprint", event, ...data }));
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS });
   }
+
+  const correlationId = req.headers.get("x-correlation-id") ?? crypto.randomUUID();
 
   const db = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -32,10 +38,11 @@ Deno.serve(async (req) => {
     .eq("id", user.id);
 
   if (error) {
-    console.error("[save-device-fingerprint] erro:", error.message);
+    log("error", "fingerprint_save_failed", { correlation_id: correlationId, user_id: user.id, db_error: error.message });
     return json({ error: error.message }, 500);
   }
 
+  log("info", "fingerprint_saved", { correlation_id: correlationId, user_id: user.id });
   return json({ ok: true });
 });
 

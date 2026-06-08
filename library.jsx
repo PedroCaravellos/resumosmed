@@ -359,7 +359,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
         if (!frame || !canvas) return;
         // Fit to width (page scrolls vertically if tall) — text fica grande e nítido
         const padX = 24;
-        const availW = Math.max(320, frame.clientWidth - padX);
+        const availW = Math.max(320, Math.min(1100, frame.clientWidth) - padX);
         const base = p.getViewport({ scale: 1 });
         const fitScale = availW / base.width;
         // High-DPI render: usa ao menos 2x device pixel ratio pra texto crispy
@@ -563,34 +563,51 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
   const total = hasPdf ? Math.max(1, pdfTotal) : fakePages.length;
   const pagerReady = !hasPdf || (pdfTotal > 0 && !pdfLoading);
 
+  const glass = {
+    background: "color-mix(in oklab, var(--surface) 88%, transparent)",
+    backdropFilter: "blur(14px)",
+    WebkitBackdropFilter: "blur(14px)",
+    border: "1px solid color-mix(in oklab, var(--line-strong) 55%, transparent)",
+    boxShadow: "0 2px 12px rgba(0,0,0,.10)",
+  };
+
   return (
     <div ref={rootRef} style={{
       position:"fixed", inset: 0, background:"var(--bg)", zIndex: 100,
-      display:"flex", flexDirection:"column",
       userSelect:"none", WebkitUserSelect:"none", MozUserSelect:"none",
     }}>
-      {/* Top bar */}
-      <header className="reader-toolbar" style={{
-        display:"flex", alignItems:"center", justifyContent:"space-between", gap: 16,
-        padding:"14px 24px",
-        borderBottom:"1px solid var(--line)",
-        background:"var(--surface)",
-        flex:"0 0 auto",
+      {/* Floating top bar */}
+      <div style={{
+        position:"absolute", top: 16, left: 16, right: 16, zIndex: 100,
+        display:"flex", alignItems:"center", justifyContent:"space-between", gap: 12,
+        pointerEvents:"none",
       }}>
-        <div className="row" style={{gap: 14, minWidth: 0}}>
-          <button className="btn" onClick={exitReader}>
+        <div className="row" style={{gap: 8, alignItems:"center", minWidth: 0, pointerEvents:"auto"}}>
+          <button
+            onClick={exitReader}
+            style={{
+              ...glass, borderRadius: 999, padding:"8px 14px",
+              display:"flex", alignItems:"center", gap: 6,
+              border:"none", cursor:"pointer", fontFamily:"inherit", fontSize: 13.5, fontWeight: 600,
+              color:"var(--fg)", whiteSpace:"nowrap", flexShrink: 0,
+            }}
+          >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
             {isAdmin ? "Painel" : "Biblioteca"}
           </button>
-          <div className="row" style={{gap: 12, minWidth: 0}}>
-            <I size={32}/>
+          <div style={{
+            ...glass, borderRadius: 12, padding:"7px 12px",
+            display:"flex", alignItems:"center", gap: 8,
+            minWidth: 0, maxWidth: 360,
+          }}>
+            <I size={22}/>
             <div style={{minWidth: 0}}>
-              <div className="mono" style={{fontSize: 10, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".1em"}}>{area.name}</div>
-              <div className="display" style={{fontSize: 16, fontWeight: 700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{r.title}</div>
+              <div className="mono" style={{fontSize: 10, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".1em", lineHeight: 1.2}}>{area.name}</div>
+              <div className="display" style={{fontSize: 13, fontWeight: 700, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{r.title}</div>
             </div>
           </div>
           {isAdmin && !testAsUser && (
-            <span className="pill" style={{background:"var(--fg)", color:"var(--bg)", borderColor:"var(--fg)"}}>
+            <span className="pill" style={{background:"var(--fg)", color:"var(--bg)", borderColor:"var(--fg)", flexShrink: 0}}>
               ★ Modo revisão
             </span>
           )}
@@ -598,30 +615,31 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
             <button
               className={testAsUser ? "btn primary" : "btn"}
               onClick={()=>setTestAsUser(s=>!s)}
-              style={{fontSize: 12, padding:"6px 12px"}}
-              title={testAsUser ? "Voltar ao modo de revisão (sem proteções)" : "Simula a experiência do usuário normal"}
+              style={{fontSize: 12, padding:"6px 12px", flexShrink: 0}}
+              title={testAsUser ? "Voltar ao modo de revisão" : "Simula a experiência do usuário normal"}
             >
               {testAsUser ? "← Sair do teste" : "Testar como usuário"}
             </button>
           )}
         </div>
-
-        <div className="row" style={{gap: 10, alignItems:"center"}}>
-          <div className="mono" style={{fontSize: 12, color:"var(--muted)"}}>{currentUser.email}</div>
+        <div className="row" style={{gap: 8, alignItems:"center", flexShrink: 0, pointerEvents:"auto"}}>
           <span className="pill" style={{background:"var(--acc-2)", borderColor:"transparent"}}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             Proteção ativa
           </span>
           {revealed && (
             <button
-              className="btn ghost"
+              style={{
+                ...glass, borderRadius: 999, width: 38, height: 38,
+                display:"flex", alignItems:"center", justifyContent:"center",
+                border:"none", cursor:"pointer", color:"var(--fg)", flexShrink: 0,
+              }}
               onClick={async () => {
                 if (document.fullscreenElement){ try { await document.exitFullscreen(); } catch {} }
                 else if (rootRef.current?.requestFullscreen){ try { await rootRef.current.requestFullscreen(); } catch {} }
               }}
               aria-label="Tela cheia"
               title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
-              style={{padding: 10}}
             >
               {isFullscreen ? (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
@@ -630,15 +648,23 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
               )}
             </button>
           )}
-          <button className="btn ghost" onClick={()=>setShowHelp(s=>!s)} aria-label="Ajuda" style={{padding: 10}}>
+          <button
+            style={{
+              ...glass, borderRadius: 999, width: 38, height: 38,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              border:"none", cursor:"pointer", color:"var(--fg)",
+            }}
+            onClick={()=>setShowHelp(s=>!s)}
+            aria-label="Ajuda"
+          >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>
           </button>
         </div>
-      </header>
+      </div>
 
       {/* Help popover */}
       {showHelp && (
-        <div style={{position:"absolute", top: 60, right: 16, background:"var(--surface)", border:"1px solid var(--line)", borderRadius: 14, padding: 18, boxShadow:"var(--shadow-pop)", zIndex: 110, maxWidth: 320, fontSize: 13.5, lineHeight: 1.5}}>
+        <div style={{position:"absolute", top: 72, right: 16, background:"var(--surface)", border:"1px solid var(--line)", borderRadius: 14, padding: 18, boxShadow:"var(--shadow-pop)", zIndex: 110, maxWidth: 320, fontSize: 13.5, lineHeight: 1.5}}>
           <div className="display" style={{fontSize: 15, fontWeight: 700, marginBottom: 8}}>Atalhos</div>
           <div className="col" style={{gap: 6, color:"var(--muted)"}}>
             <div className="row between"><span>Clique do lado</span><span className="mono">esquerda / direita</span></div>
@@ -653,25 +679,16 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
         </div>
       )}
 
-      {/* Page area */}
-      <div style={{flex:"1 1 auto", overflow:"hidden", position:"relative", display:"flex", alignItems:"center", justifyContent:"center", padding: 16}}>
-
-        <div ref={frameRef} className="pdf-reader-frame"
-             style={{
-          width: "min(1100px, 100%)",
-          height: "100%",
-          maxHeight: "100%",
-          background: hasPdf ? "var(--bg)" : "var(--surface)",
-          border:"1px solid var(--line)",
-          borderRadius: 14,
-          boxShadow:"var(--shadow-pop)",
-          position:"relative",
-          overflow: hasPdf ? "auto" : "hidden",
-          display: "block",
-          filter: (hasPdf && !revealed && !effAdmin) ? "blur(18px) saturate(.7)" : undefined,
-          transition: "filter .3s ease",
-          pointerEvents: (hasPdf && !revealed && !effAdmin) ? "none" : "auto",
-        }}>
+      {/* PDF frame — fills entire screen */}
+      <div ref={frameRef} className="pdf-reader-frame"
+           style={{
+        position:"absolute", inset: 0,
+        background:"var(--bg)",
+        overflow: hasPdf ? "auto" : "hidden",
+        filter: (hasPdf && !revealed && !effAdmin) ? "blur(18px) saturate(.7)" : undefined,
+        transition: "filter .3s ease",
+        pointerEvents: (hasPdf && !revealed && !effAdmin) ? "none" : "auto",
+      }}>
           {/* Modo fake/demo só pra placeholder visual quando não tem PDF — sem watermark.
               Watermark de verdade vai direto no canvas quando hasPdf. */}
           {hasPdf ? (
@@ -687,7 +704,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
                   <div className="mono" style={{fontSize: 12, color:"var(--muted)"}}>O link assinado pode ter expirado. Recarregue a página.</div>
                 </div>
               )}
-              <div style={{padding: 12, display:"flex", justifyContent:"center"}}>
+              <div style={{padding:"80px 16px 96px", display:"flex", justifyContent:"center"}}>
                 <canvas
                   ref={canvasRef}
                   style={{ display:"block", borderRadius: 4, position:"relative", zIndex: 1, boxShadow:"0 1px 0 rgba(0,0,0,.04), 0 6px 16px -8px rgba(0,0,0,.15)" }}
@@ -764,47 +781,107 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
             </button>
           </>
         )}
-      </div>
 
-      {/* Bottom pager — esconde durante carregamento do PDF pra não mostrar 0/0 */}
-      {pagerReady && <footer className="reader-toolbar" style={{
-        flex:"0 0 auto",
-        padding:"12px 24px",
-        borderTop:"1px solid var(--line)",
-        background:"var(--surface)",
-        display:"flex", alignItems:"center", justifyContent:"space-between", gap: 16,
-      }}>
-        <div className="mono" style={{fontSize: 12, color:"var(--muted)"}}>
-          Página <b style={{color:"var(--fg)"}}>{page+1}</b> de {total}
-        </div>
-        <div style={{flex: 1, height: 4, background:"var(--bg)", borderRadius: 999, overflow:"hidden", maxWidth: 280}}>
-          <div style={{height:"100%", width: `${((page+1)/total)*100}%`, background:"var(--primary)", borderRadius: 999, transition:"width .25s ease"}}/>
-        </div>
-        {hasPdf && (
-          <div className="row" style={{gap: 4}}>
-            <button className="btn ghost" title="Diminuir zoom" onClick={()=>setScale(s=>Math.max(.5, s-0.15))} style={{padding: 8}}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M7 11h8"/></svg>
+      {/* Floating bottom bar */}
+      {pagerReady && (
+        <div style={{
+          position:"absolute", bottom: 16, left: 16, right: 16, zIndex: 100,
+          display:"flex", alignItems:"center", justifyContent:"space-between", gap: 12,
+        }}>
+          <div className="mono" style={{
+            ...glass, borderRadius: 999, padding:"9px 14px",
+            fontSize: 12, color:"var(--muted)", flexShrink: 0,
+          }}>
+            Pág <b style={{color:"var(--fg)"}}>{page+1}</b> / {total}
+          </div>
+
+          <div style={{
+            ...glass, borderRadius: 999, padding:"5px 5px",
+            display:"flex", alignItems:"center", gap: 8,
+            flexShrink: 0,
+          }}>
+            <button
+              onClick={()=>setPage(p=>Math.max(0,p-1))}
+              disabled={page===0}
+              style={{
+                borderRadius: 999, padding:"7px 14px",
+                background: page===0 ? "transparent" : "color-mix(in oklab, var(--fg) 8%, transparent)",
+                border:"none", cursor: page===0 ? "default" : "pointer",
+                fontFamily:"inherit", fontSize: 13, fontWeight: 600,
+                color:"var(--fg)", opacity: page===0 ? 0.35 : 1,
+                transition:"background .15s, opacity .15s",
+                display:"flex", alignItems:"center", gap: 5,
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              Anterior
             </button>
-            <div className="mono" style={{fontSize: 11, color:"var(--muted)", width: 44, textAlign:"center"}}>
-              {Math.round(scale*100)}%
+            <div style={{width: 100, height: 4, background:"color-mix(in oklab, var(--fg) 12%, transparent)", borderRadius: 999, overflow:"hidden", flexShrink: 0}}>
+              <div style={{height:"100%", width:`${((page+1)/total)*100}%`, background:"var(--primary)", borderRadius: 999, transition:"width .25s ease"}}/>
             </div>
-            <button className="btn ghost" title="Aumentar zoom" onClick={()=>setScale(s=>Math.min(3, s+0.15))} style={{padding: 8}}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 7v8M7 11h8"/></svg>
+            <button
+              onClick={()=>setPage(p=>Math.min(total-1, p+1))}
+              disabled={page===total-1}
+              style={{
+                borderRadius: 999, padding:"7px 14px",
+                background: page===total-1 ? "transparent" : "var(--primary)",
+                border:"none", cursor: page===total-1 ? "default" : "pointer",
+                fontFamily:"inherit", fontSize: 13, fontWeight: 600,
+                color: page===total-1 ? "var(--fg)" : "var(--primary-ink)",
+                opacity: page===total-1 ? 0.35 : 1,
+                transition:"background .15s, opacity .15s, color .15s",
+                display:"flex", alignItems:"center", gap: 5,
+              }}
+            >
+              Próxima
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
             </button>
           </div>
-        )}
-        <div className="row" style={{gap: 8}}>
-          <button className="btn reader-nav-btn" disabled={page===0} onClick={()=>setPage(p=>Math.max(0,p-1))} style={{opacity: page===0?.4:1}}>← Anterior</button>
-          <button className="btn primary reader-nav-btn" disabled={page===total-1} onClick={()=>setPage(p=>Math.min(total-1, p+1))} style={{opacity: page===total-1?.4:1}}>Próxima →</button>
+
+          {hasPdf && (
+            <div style={{
+              ...glass, borderRadius: 999, padding:"4px 4px",
+              display:"flex", alignItems:"center", gap: 2,
+              flexShrink: 0,
+            }}>
+              <button
+                title="Diminuir zoom"
+                onClick={()=>setScale(s=>Math.max(.5, s-0.15))}
+                style={{
+                  width: 32, height: 32, borderRadius: 999,
+                  background:"transparent", border:"none", cursor:"pointer",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  color:"var(--muted)",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M7 11h8"/></svg>
+              </button>
+              <div className="mono" style={{fontSize: 11, color:"var(--muted)", width: 40, textAlign:"center"}}>
+                {Math.round(scale*100)}%
+              </div>
+              <button
+                title="Aumentar zoom"
+                onClick={()=>setScale(s=>Math.min(3, s+0.15))}
+                style={{
+                  width: 32, height: 32, borderRadius: 999,
+                  background:"transparent", border:"none", cursor:"pointer",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  color:"var(--muted)",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 7v8M7 11h8"/></svg>
+              </button>
+            </div>
+          )}
         </div>
-      </footer>}
+      )}
 
       {/* Floating quiz button */}
       {quizData?.questions?.length > 0 && !showQuiz && (revealed || effAdmin) && (
         <button
           onClick={()=>setShowQuiz(true)}
           style={{
-            position:"absolute", bottom: 76, left:"50%", transform:"translateX(-50%)", zIndex: 90,
+            position:"absolute", bottom: 84, left:"50%", transform:"translateX(-50%)", zIndex: 90,
             display:"flex", alignItems:"center", gap: 10,
             padding:"13px 22px", borderRadius: 999, border:"none",
             background:"var(--primary)", color:"var(--primary-ink)",
@@ -813,8 +890,8 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
             boxShadow:"0 4px 24px color-mix(in oklab, var(--primary) 45%, transparent)",
             transition:"transform .15s ease, box-shadow .15s ease",
           }}
-          onMouseEnter={e=>{ e.currentTarget.style.transform="translateY(-3px)"; e.currentTarget.style.boxShadow="0 8px 32px color-mix(in oklab, var(--primary) 55%, transparent)"; }}
-          onMouseLeave={e=>{ e.currentTarget.style.transform="translateY(0)"; e.currentTarget.style.boxShadow="0 4px 24px color-mix(in oklab, var(--primary) 45%, transparent)"; }}
+          onMouseEnter={e=>{ e.currentTarget.style.transform="translateX(-50%) translateY(-3px)"; e.currentTarget.style.boxShadow="0 8px 32px color-mix(in oklab, var(--primary) 55%, transparent)"; }}
+          onMouseLeave={e=>{ e.currentTarget.style.transform="translateX(-50%) translateY(0)"; e.currentTarget.style.boxShadow="0 4px 24px color-mix(in oklab, var(--primary) 45%, transparent)"; }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10"/>
@@ -916,6 +993,8 @@ function TermsModal({ user, onAccept, onDecline }){
         background:"var(--surface)", borderRadius:"var(--radius-lg)",
         border:"1px solid var(--line)", boxShadow:"var(--shadow-pop)",
         width:"100%", maxWidth: 580, padding: 0, overflow:"hidden",
+        display:"flex", flexDirection:"column",
+        maxHeight:"calc(100dvh - 48px)",
         animation:"pageIn .3s cubic-bezier(.2,.7,.1,1)",
       }}>
         <div style={{padding:"26px 30px 18px", borderBottom:"1px solid var(--line)", display:"flex", gap: 14, alignItems:"center"}}>
@@ -932,7 +1011,7 @@ function TermsModal({ user, onAccept, onDecline }){
           </div>
         </div>
 
-        <div style={{padding:"22px 30px", fontSize: 14.5, color:"var(--fg)", lineHeight: 1.6}}>
+        <div style={{padding:"22px 30px", fontSize: 14.5, color:"var(--fg)", lineHeight: 1.6, overflowY:"auto", flex:"1 1 auto"}}>
           <p style={{margin: 0, marginBottom: 14}}>
             Os resumos da <b>resumosmed</b> são protegidos por direitos autorais e licenciados <b>apenas para uso pessoal</b>. Ao continuar, você concorda que:
           </p>
@@ -941,7 +1020,7 @@ function TermsModal({ user, onAccept, onDecline }){
             <TermsItem n="01" t="Não compartilhar, distribuir ou revender" d="Não posso passar o PDF nem trechos pra colegas, grupos de WhatsApp/Telegram/Discord, redes sociais ou qualquer site."/>
             <TermsItem n="02" t="Não imprimir, capturar tela nem fotografar" d="Toda página tem watermark com meu email, ID e horário. Se vazar, é fácil identificar de quem saiu."/>
             <TermsItem n="03" t="Atividade é registrada" d="O sistema registra tentativas de cópia, print, abertura em outras janelas e uso de ferramentas suspeitas."/>
-            <TermsItem n="04" t="Em caso de vazamento" d="Conta é suspensa imediatamente, sem reembolso, e o conteúdo vazado pode ser usado como prova em ação legal por violação de direitos autorais (Lei 9.610/98)."/>
+            <TermsItem n="04" t="Em caso de vazamento" d="Conta é suspensa imediatamente. O conteúdo vazado pode ser usado como prova em ação legal por violação de direitos autorais (Lei 9.610/98). Solicitações de reembolso dentro de 7 dias da compra são processadas normalmente conforme o CDC."/>
           </ul>
 
           <div style={{padding: 12, background:"var(--bg)", borderRadius: 10, border:"1px dashed var(--line-strong)", fontSize: 12.5, color:"var(--muted)", lineHeight: 1.55}}>

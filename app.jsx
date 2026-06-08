@@ -87,7 +87,8 @@ function App(){
         clearTimeout(guard);
       })
       .catch(err => {
-        console.error("[auth] loadCurrentUser falhou:", err);
+        console.error(JSON.stringify({ level: "error", service: "frontend", event: "auth_load_failed", ts: new Date().toISOString(), error: err?.message || String(err), session_id: window.__SESSION_ID }));
+        if (window.Sentry) window.Sentry.captureException(err);
         if (mounted){ setCurrentUser(null); setAuthReady(true); }
         clearTimeout(guard);
       });
@@ -112,7 +113,8 @@ function App(){
         setCurrentUser(u);
         setAuthReady(true);
       } catch (err) {
-        console.error("[auth] onAuthStateChange:", err);
+        console.error(JSON.stringify({ level: "error", service: "frontend", event: "auth_state_change_failed", ts: new Date().toISOString(), error: err?.message || String(err), session_id: window.__SESSION_ID }));
+        if (window.Sentry) window.Sentry.captureException(err);
       }
     });
     return () => { mounted = false; clearTimeout(guard); sub?.subscription?.unsubscribe?.(); };

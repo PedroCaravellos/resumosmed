@@ -469,6 +469,11 @@ function Footer({ go }){
         <div>© 2026 resumosmed — Feito entre uma aula de fisio e outra.</div>
         <div className="mono">v1.0 · Atualizado em Mai 26</div>
       </div>
+      <div className="page" style={{marginTop: 12, fontSize: 11, color:"var(--muted)", opacity: 0.7, lineHeight: 1.6, textAlign:"center"}}>
+        Responsável: Larissa Oliveira Ferreira · Rio de Janeiro, RJ ·{" "}
+        <a href="mailto:larissaferreira.sjn@gmail.com" style={{color:"inherit"}}>larissaferreira.sjn@gmail.com</a>
+        {" "}· Pessoa Física — CNPJ em processo de abertura
+      </div>
     </footer>
   );
 }

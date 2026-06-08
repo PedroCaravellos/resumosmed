@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>resumosmed — Resumos de Medicina</title>
 <meta name="description" content="26+ resumos de medicina escritos por aluno pra aluno. Leitor online protegido, acesso vitalício. Cardiologia, Neurologia, Endocrinologia e mais. A partir de R$ 29." />
 <meta property="og:title" content="resumosmed — Resumos de medicina que caem na prova" />
@@ -14,7 +14,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Instrument+Serif:ital@0;1&family=DM+Serif+Display&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
 <style>
   /* ────────── Theme tokens (driven by Tweaks) ────────── */
@@ -22,7 +22,7 @@
     --bg: #FAF6EF;
     --surface: #FFFFFF;
     --fg: #1B1A17;
-    --muted: #6E6A60;
+    --muted: #5A564C;
     --line: #E8E1D4;
     --line-strong: #DDD3BF;
 
@@ -84,8 +84,8 @@
     --surface: #1E1C16;
     --fg: #F5EFE2;
     --muted: #9D998A;
-    --line: #2B2820;
-    --line-strong: #3A362A;
+    --line: #3D3930;
+    --line-strong: #4A4540;
     --primary-ink: #15140F;
     --shadow-card: 0 1px 0 rgba(255,255,255,.03), 0 10px 30px -16px rgba(0,0,0,.7);
     --shadow-pop: 0 1px 0 rgba(255,255,255,.04), 0 22px 50px -22px rgba(0,0,0,.85);
@@ -102,7 +102,7 @@
 
   /* Reusable */
   .page{ max-width: 1280px; margin: 0 auto; padding-left: var(--pad-page); padding-right: var(--pad-page); }
-  .display{ font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
+  .display{ font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; line-height: 1; text-wrap: balance; font-optical-sizing: auto; }
   .serif{ font-family: var(--font-accent); font-style: italic; font-weight: 400; }
   .mono{ font-family: var(--font-mono); font-feature-settings: "ss01","tnum"; letter-spacing: -0.01em;}
   .pill{ display:inline-flex; align-items:center; gap:6px; padding: 5px 11px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 12px; font-weight: 500;}
@@ -112,6 +112,12 @@
   .btn.primary:hover{ filter: brightness(1.05); }
   .btn.ghost{ background: transparent; border-color: transparent; }
   .btn.lg{ padding: 16px 22px; font-size: 15px; }
+  .btn:disabled{ cursor: not-allowed; opacity: 0.45; }
+
+  /* Global input style */
+  .input{ display: block; width: 100%; padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--surface); color: var(--fg); font-family: inherit; font-size: 14px; line-height: 1.5; outline: none; transition: border-color .15s ease; }
+  .input:focus{ border-color: var(--primary); }
+  .input::placeholder{ color: var(--muted); }
 
   /* Card styles (TWEAKABLE) */
   [data-card="soft"] .card{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
@@ -123,7 +129,7 @@
   /* Marquee */
   @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   .marquee{ overflow: hidden; }
-  .marquee-track{ display: inline-flex; gap: 56px; padding: 0 28px; white-space: nowrap; animation: marquee 38s linear infinite; }
+  .marquee-track{ display: inline-flex; gap: 56px; padding: 0 28px; white-space: nowrap; animation: marquee 38s linear infinite; will-change: transform; }
 
   /* Blob blink (decorative) */
   @keyframes wiggle { 0%,100%{ transform: rotate(-3deg);} 50%{ transform: rotate(3deg);} }
@@ -190,7 +196,7 @@
 
   /* ── Hero entrance stagger ── */
   @keyframes heroIn {
-    from { opacity: 0; transform: translateY(26px); }
+    from { opacity: 0; transform: translateY(16px); }
     to   { opacity: 1; transform: translateY(0); }
   }
   [data-hero-stagger] > *:nth-child(1){ --i:0; }
@@ -251,12 +257,23 @@
     .product-sticky { position: static !important; }
   }
   @media (max-width: 640px) {
-    .hero-stats { grid-template-columns: repeat(2, auto) !important; }
+    :root { --hero-pad-y: 44px; }
+    [data-hero-stagger] { text-align: center; }
+    .hero-sub  { font-size: 16px !important; margin-bottom: 24px !important; margin-left: auto !important; margin-right: auto !important; }
+    .hero-cta  { flex-direction: column !important; gap: 14px !important; }
+    .hero-cta .btn { width: 100% !important; justify-content: center !important; }
+    .hero-stats { grid-template-columns: repeat(2, 1fr) !important; margin-top: 24px !important; justify-content: center !important; }
+    :root { --card-pad: 16px; }
+    .footer-brand p { font-size: 13px !important; }
+    footer a { padding: 6px 0; display: inline-block; }
     .feature-grid { grid-template-columns: 1fr !important; }
     .areas-grid { grid-template-columns: repeat(2, 1fr) !important; }
     .footer-grid { grid-template-columns: 1fr 1fr !important; gap: 20px !important; }
     .footer-brand { grid-column: 1 / -1 !important; }
     .pricing-price { font-size: clamp(28px, 8vw, 40px) !important; }
+    .product-sticky h1.display { font-size: clamp(22px, 6vw, 32px) !important; line-height: 1.15 !important; }
+    .product-sticky .product-price { font-size: 34px !important; }
+    .product-sticky p { font-size: 15px !important; }
     .footer-copy { flex-direction: column !important; gap: 6px !important; text-align: center !important; }
   }
   @media (max-width: 768px) {
@@ -266,13 +283,40 @@
     .nav-hamburger { display: flex !important; }
     .auth-decor { display: none !important; }
     .auth-shell-grid { grid-template-columns: 1fr !important; }
-    .reader-toolbar { padding: 10px 14px !important; gap: 8px !important; }
-    .reader-nav-btn { width: 44px !important; height: 44px !important; min-width: 44px !important; }
   }
 </style>
 </head>
 <body>
   <div id="root"></div>
+
+  <!-- ── Monitoramento de erros (Sentry) ───────────────────────────────── -->
+  <!-- Loader script específico do projeto resumosmed — auto-inicializa     -->
+  <script
+    src="https://js.sentry-cdn.com/ca456f7fd2822ac6fb4aa8a4b40ec545.min.js"
+    crossorigin="anonymous"
+  ></script>
+  <script>
+    (function(){
+      // Gera session ID único para rastreabilidade ponta-a-ponta
+      window.__SESSION_ID = (Date.now().toString(36) + Math.random().toString(36).slice(2)).slice(0, 12);
+
+      // Captura erros JS não tratados
+      window.onerror = function(msg, src, line, col, err) {
+        var data = { msg: String(msg), src: src, line: line, session_id: window.__SESSION_ID };
+        if (window.Sentry) window.Sentry.captureException(err || new Error(String(msg)));
+        console.error(JSON.stringify({ level: "error", service: "frontend", event: "js_error", ts: new Date().toISOString(), ...data }));
+      };
+
+      window.addEventListener("unhandledrejection", function(e) {
+        var reason = e.reason;
+        var msg = reason instanceof Error ? reason.message : String(reason);
+        var data = { event: "unhandled_rejection", msg: msg, session_id: window.__SESSION_ID };
+        if (window.Sentry) window.Sentry.captureException(reason instanceof Error ? reason : new Error(msg));
+        console.error(JSON.stringify({ level: "error", service: "frontend", ts: new Date().toISOString(), ...data }));
+      });
+    })();
+  </script>
+  <!-- ────────────────────────────────────────────────────────────────────── -->
 
   <!-- PDF.js (visualização sem download/cópia) -->
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
@@ -282,16 +326,16 @@
   <script src="supabase.js"></script>
 
   <!-- React + Babel -->
-  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
   <script type="text/babel" src="tweaks-panel.jsx?v=4"></script>
-  <script type="text/babel" src="shared.jsx?v=4"></script>
+  <script type="text/babel" src="shared.jsx?v=5"></script>
   <script type="text/babel" src="data.jsx?v=4"></script>
   <script type="text/babel" src="auth.jsx?v=4"></script>
-  <script type="text/babel" src="pages.jsx?v=4"></script>
-  <script type="text/babel" src="library.jsx?v=4"></script>
+  <script type="text/babel" src="pages.jsx?v=7"></script>
+  <script type="text/babel" src="library.jsx?v=7"></script>
   <script type="text/babel" src="admin.jsx?v=4"></script>
   <script type="text/babel" src="app.jsx?v=4"></script>
 

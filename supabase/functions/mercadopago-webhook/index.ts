@@ -5,6 +5,10 @@ const MP_API = "https://api.mercadopago.com";
 type SupabaseClient = ReturnType<typeof createClient>;
 type MPPayment = Record<string, unknown>;
 
+function log(level: "info" | "warn" | "error" | "fatal", event: string, data: Record<string, unknown> = {}) {
+  console.log(JSON.stringify({ level, ts: new Date().toISOString(), service: "mercadopago-webhook", event, ...data }));
+}
+
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -19,10 +23,11 @@ Deno.serve(async (req) => {
     return new Response("Method Not Allowed", { status: 405 });
   }
 
-  const webhookSecret = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET") ?? "";
-  const accessToken   = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
+  const correlationId  = req.headers.get("x-correlation-id") ?? crypto.randomUUID();
+  const webhookSecret  = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET") ?? "";
+  const accessToken    = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
   if (!accessToken) {
-    console.error("[mp-webhook] MERCADOPAGO_ACCESS_TOKEN não configurado");
+    log("fatal", "missing_access_token", { correlation_id: correlationId });
     return new Response("Internal Server Error", { status: 500 });
   }
 
@@ -71,8 +76,8 @@ Deno.serve(async (req) => {
     const expectedHash = Array.from(new Uint8Array(sigBuf))
       .map(b => b.toString(16).padStart(2, "0")).join("");
     if (receivedHash !== expectedHash) {
-      // Loga mas não rejeita — pagamento é verificado diretamente na API do MP
-      console.warn("[mp-webhook] Assinatura HMAC não bate — continuando mesmo assim");
+      log("error", "webhook_signature_invalid", { correlation_id: correlationId, data_id: dataId });
+      return new Response("Forbidden", { status: 401, headers: CORS });
     }
   }
 
@@ -85,7 +90,7 @@ Deno.serve(async (req) => {
     await processPaymentId(dataId, accessToken, db);
   })();
 
-  processing.catch(err => console.error("[mp-webhook] Erro no processamento:", err));
+  processing.catch(err => log("error", "processing_exception", { correlation_id: correlationId, error: err?.message ?? String(err) }));
   return new Response("OK", { status: 200 });
 });
 
@@ -106,7 +111,7 @@ async function processExternalRef(externalRef: string, accessToken: string, db: 
     ?.find(p => p.status === "approved");
 
   if (!approved) {
-    console.log("[mp-webhook] Nenhum pagamento aprovado para:", externalRef);
+    log("info", "no_approved_payment", { external_ref: externalRef });
     return "pending";
   }
 
@@ -128,11 +133,11 @@ async function processPaymentId(
     payment = await res.json();
   }
 
-  console.log("[mp-webhook] Payment status:", payment.status, "ref:", payment.external_reference);
+  log("info", "payment_status_check", { payment_id: paymentId, status: payment.status, external_ref: payment.external_reference });
   if (payment.status !== "approved") return;
 
   const externalRef = payment.external_reference as string;
-  if (!externalRef) { console.warn("[mp-webhook] Sem external_reference:", paymentId); return; }
+  if (!externalRef) { log("warn", "missing_external_reference", { payment_id: paymentId }); return; }
 
   // Atômico: só processa se ainda "pending" — evita race condition entre IPN e force-check
   const { data: updated, error: updateErr } = await db
@@ -144,7 +149,7 @@ async function processPaymentId(
     .maybeSingle();
 
   if (updateErr || !updated) {
-    console.warn("[mp-webhook] Não encontrado ou já processado:", externalRef, updateErr?.message);
+    log("warn", "payment_already_processed_or_not_found", { external_ref: externalRef, db_error: updateErr?.message });
     return;
   }
 
@@ -159,10 +164,15 @@ async function processPaymentId(
 
   const { error: purchaseErr } = await db.from("purchases").insert(rows);
   if (purchaseErr) {
-    console.error("[mp-webhook] Falha ao inserir purchases:", purchaseErr.message);
+    log("fatal", "purchase_insert_failed", {
+      external_ref: externalRef,
+      user_id: updated.user_id,
+      items_count: rows.length,
+      db_error: purchaseErr.message,
+    });
     return;
   }
-  console.log("[mp-webhook] Pagamento confirmado:", externalRef, "usuário:", updated.user_id);
+  log("info", "payment_confirmed", { external_ref: externalRef, user_id: updated.user_id, method, items_count: rows.length });
 
   // Email de confirmação — fire-and-forget
   try {
@@ -184,5 +194,5 @@ async function processPaymentId(
         }),
       });
     }
-  } catch (e) { console.warn("[mp-webhook] Email falhou:", e); }
+  } catch (e) { log("warn", "email_send_failed", { external_ref: externalRef, error: (e as Error)?.message }); }
 }

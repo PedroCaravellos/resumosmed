@@ -27,9 +27,13 @@ build/
 
 # Claude Code
 .claude/
+.agents/
+skills-lock.json
 
 # Uploads locais
 uploads/
 
 # Supabase CLI temp
 supabase/.temp/
+
+.vercel

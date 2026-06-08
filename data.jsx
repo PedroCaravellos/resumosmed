@@ -258,11 +258,13 @@ async function saveDeviceFingerprint(userId, fingerprint, deviceName){
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return { error: "Sessão inválida" };
+    const correlationId = `${window.__SESSION_ID || "x"}_${Date.now()}`;
     const res = await fetch(`${window.SUPABASE_URL}/functions/v1/save-device-fingerprint`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${session.access_token}`,
+        "X-Correlation-Id": correlationId,
       },
       body: JSON.stringify({ fingerprint, deviceName }),
     });

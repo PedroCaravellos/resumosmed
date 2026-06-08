@@ -63,10 +63,10 @@ function Hero({ go, copy }){
             </span>{" "}
             {copy.title[2]}
           </h1>
-          <p style={{fontSize: 19, lineHeight: 1.5, color:"var(--muted)", maxWidth: 520, margin: 0, marginBottom: 32}}>
+          <p className="hero-sub" style={{fontSize: 19, lineHeight: 1.5, color:"var(--muted)", maxWidth: 520, margin: 0, marginBottom: 32}}>
             {copy.sub}
           </p>
-          <div className="row gap-md" style={{flexWrap:"wrap"}}>
+          <div className="row gap-md hero-cta" style={{flexWrap:"wrap"}}>
             <button className="btn primary lg" onClick={()=>go({name:"catalog"})}>
               Ver catálogo
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
@@ -102,7 +102,7 @@ function StatItem({ n, label }){
   return (
     <div className="col" style={{gap: 2, minWidth: 0}}>
       <div className="display" style={{fontSize: 20, color:"var(--fg)", fontWeight: 700, whiteSpace:"nowrap"}}>{n}</div>
-      <div style={{fontSize: 11, textTransform:"uppercase", letterSpacing:".06em", whiteSpace:"nowrap"}}>{label}</div>
+      <div style={{fontSize: 12, color:"var(--muted)", whiteSpace:"nowrap", lineHeight:1.3}}>{label}</div>
     </div>
   );
 }
@@ -793,7 +793,7 @@ function Product({ id, go, addToCart, cart, currentUser }){
           <span style={{color:"var(--fg)"}}>{r.title}</span>
         </div>
 
-        <div style={{display:"grid", gridTemplateColumns:"1.1fr .9fr", gap: 48, alignItems:"flex-start"}}>
+        <div className="product-detail-grid" style={{display:"grid", gridTemplateColumns:"1.1fr .9fr", gap: 48, alignItems:"flex-start"}}>
           {/* Left: PDF mock + content list */}
           <div>
             <ProductPagePreview r={r} area={area} I={I}/>
@@ -822,7 +822,7 @@ function Product({ id, go, addToCart, cart, currentUser }){
             </p>
 
             <div className="row" style={{alignItems:"baseline", gap: 12, marginBottom: 22}}>
-              <div className="display" style={{fontSize: 48, fontWeight: 700, color:"var(--fg)", lineHeight: 1}}>R$ {r.price}</div>
+              <div className="display product-price" style={{fontSize: 48, fontWeight: 700, color:"var(--fg)", lineHeight: 1}}>R$ {r.price}</div>
               <div style={{color:"var(--muted)", fontSize: 14}}>à vista · ou 3x sem juros</div>
             </div>
 
@@ -976,8 +976,9 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
       if (!session) { go({ name:"login" }); return; }
 
       const completionUrl = window.location.origin + "?payment_return=1";
+      const correlationId = `${window.__SESSION_ID || "x"}_${Date.now()}`;
       const { data, error } = await sb.functions.invoke("create-mp-preference", {
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: `Bearer ${session.access_token}`, "X-Correlation-Id": correlationId },
         body: { items: cart, cpf: rawCpf, name: currentUser.name, email: currentUser.email, completionUrl },
       });
       if (error || !data?.checkoutUrl){
@@ -1442,7 +1443,7 @@ function AccountSettings({ go, currentUser, refreshUser }){
             <div style={{ fontSize: 32, marginBottom: 10 }}>✓</div>
             <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Solicitação enviada!</div>
             <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 20 }}>
-              Entraremos em contato pelo email <strong>{currentUser.email}</strong>
+              Responderemos pelo email <strong>{currentUser.email}</strong> em até 2 dias úteis.
             </div>
             <button className="btn" onClick={() => setTicketSent(false)}>Nova solicitação</button>
           </div>
@@ -1494,32 +1495,10 @@ function AccountSettings({ go, currentUser, refreshUser }){
 // ─────────────────────────────────────────────────────────
 const TICKET_SUBJ = { duvida:"Dúvida sobre conteúdo", problema:"Problema técnico", pagamento:"Pagamento", acesso:"Acesso ao resumo", outro:"Outro" };
 
-function TicketThread({ ticket, currentUser }){
+function TicketThread({ ticket }){
   const [open, setOpen] = useStateP(false);
   const [replies, setReplies] = useStateP([]);
   const [loaded, setLoaded] = useStateP(false);
-  const [replyText, setReplyText] = useStateP("");
-  const [replyBusy, setReplyBusy] = useStateP(false);
-  const [localStatus, setLocalStatus] = useStateP(ticket.status);
-
-  // Realtime: novas respostas do admin (ativo só quando expandido)
-  useEffectP(() => {
-    if (!open || !loaded) return;
-    const ch = sb.channel("tr-" + ticket.id)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "ticket_replies", filter: `ticket_id=eq.${ticket.id}` },
-        p => setReplies(prev => prev.some(r => r.id === p.new.id) ? prev : [...prev, p.new]))
-      .subscribe();
-    return () => sb.removeChannel(ch);
-  }, [open, loaded]);
-
-  // Realtime: mudança de status (ticket marcado como resolvido)
-  useEffectP(() => {
-    const ch = sb.channel("ts-" + ticket.id)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "support_tickets", filter: `id=eq.${ticket.id}` },
-        p => { if (p.new?.status) setLocalStatus(p.new.status); })
-      .subscribe();
-    return () => sb.removeChannel(ch);
-  }, []);
 
   const toggle = async () => {
     if (!open && !loaded) {
@@ -1530,18 +1509,7 @@ function TicketThread({ ticket, currentUser }){
     setOpen(o => !o);
   };
 
-  const sendReply = async (e) => {
-    e.preventDefault();
-    const text = replyText.trim();
-    if (!text || replyBusy) return;
-    setReplyBusy(true);
-    const { reply, error } = await addTicketReply(ticket.id, currentUser.id, text, false);
-    if (reply) { setReplies(prev => [...prev, reply]); setReplyText(""); }
-    if (error) alert("Erro ao enviar: " + error);
-    setReplyBusy(false);
-  };
-
-  const isOpen = localStatus === "open";
+  const isOpen = ticket.status === "open";
   const subj = TICKET_SUBJ[ticket.subject] || ticket.subject;
 
   return (
@@ -1599,16 +1567,10 @@ function TicketThread({ ticket, currentUser }){
             </div>
           ))}
 
-          {/* Resposta do usuário (só se aberta) */}
           {isOpen && loaded && (
-            <form onSubmit={sendReply} style={{ display:"flex", gap:8, marginTop:12 }}>
-              <input className="input" value={replyText} onChange={e => setReplyText(e.target.value)}
-                placeholder="Responder..." style={{ flex:1, fontSize:13 }} />
-              <button className="btn primary" type="submit" disabled={replyBusy || !replyText.trim()}
-                style={{ opacity:replyBusy ? .7 : 1, whiteSpace:"nowrap", padding:"0 16px" }}>
-                {replyBusy ? "…" : "Enviar"}
-              </button>
-            </form>
+            <div style={{ fontSize:12, color:"var(--muted)", marginTop:10, padding:"8px 12px", background:"var(--bg)", borderRadius:8 }}>
+              Responderemos por email. Se precisar de mais ajuda, abra um novo chamado.
+            </div>
           )}
         </div>
       )}
@@ -1655,7 +1617,7 @@ function TermsPage({ go, anchor }){
 
       <div style={h2}>2. Acesso e uso</div>
       <p style={p}>Cada conta é individual. É proibido compartilhar credenciais de acesso, redistribuir os materiais, reproduzi-los total ou parcialmente, ou revendê-los sob qualquer forma. Todos os PDFs são protegidos e contêm marca d'água com o email do usuário.</p>
-      <p style={p}>O uso indevido pode resultar em suspensão imediata da conta sem direito a reembolso.</p>
+      <p style={p}>O uso indevido pode resultar em suspensão imediata da conta. A suspensão não prejudica o direito de arrependimento previsto no Art. 49 do Código de Defesa do Consumidor — solicitações de reembolso feitas dentro dos 7 dias após a compra serão processadas normalmente, independentemente do motivo da suspensão. Após esse prazo, não há reembolso em caso de violação dos termos.</p>
 
       <div style={h2}>3. Pagamentos</div>
       <p style={p}>Os pagamentos são processados pelo Mercado Pago. O resumosmed não armazena dados de cartão de crédito. O acesso ao material é liberado imediatamente após a confirmação do pagamento.</p>
@@ -1669,8 +1631,17 @@ function TermsPage({ go, anchor }){
       <div style={h2}>6. Limitação de responsabilidade</div>
       <p style={p}>Os resumos têm fins educacionais e não substituem a leitura das diretrizes clínicas, livros-texto ou orientação médica profissional. O resumosmed não se responsabiliza por decisões clínicas baseadas exclusivamente em seu conteúdo.</p>
 
-      <div style={h2}>7. Contato</div>
-      <p style={p}>Dúvidas? Entre em contato pelo formulário de suporte disponível no site.</p>
+      <div style={h2}>7. Identificação do fornecedor</div>
+      <p style={p}>Este serviço é operado por pessoa física, nos termos do Decreto 7.962/2013:</p>
+      <ul style={{ paddingLeft: 20, marginBottom: 12, lineHeight: 2 }}>
+        <li><strong>Responsável:</strong> Larissa Oliveira Ferreira</li>
+        <li><strong>Localização:</strong> Rio de Janeiro, RJ</li>
+        <li><strong>Email:</strong> larissaferreira.sjn@gmail.com</li>
+        <li><strong>Atendimento:</strong> exclusivamente em português, pelo formulário de suporte ou email acima, com resposta em até 2 dias úteis</li>
+      </ul>
+
+      <div style={h2}>8. Contato</div>
+      <p style={p}>Dúvidas ou solicitações? Entre em contato pelo formulário de suporte disponível no site. Para exercer direitos previstos no CDC ou na LGPD (acesso, correção, exclusão de dados), utilize o mesmo canal — respondemos em até 5 dias úteis.</p>
     </LegalPage>
   );
 }
@@ -1687,9 +1658,11 @@ function PrivacyPage({ go }){
       <p style={p}>Coletamos os seguintes dados ao criar sua conta e realizar compras:</p>
       <ul style={{ paddingLeft: 20, marginBottom: 12, lineHeight: 2 }}>
         <li><strong>Nome e email</strong> — para identificação e acesso à conta</li>
-        <li><strong>CPF</strong> — exigido pelo processador de pagamentos (Mercado Pago) para emissão fiscal; não armazenamos o CPF em nosso banco de dados</li>
+        <li><strong>CPF</strong> — exigido pelo processador de pagamentos (Mercado Pago) para emissão fiscal; não armazenamos o CPF em nosso banco de dados após o envio ao processador</li>
         <li><strong>Histórico de compras</strong> — produtos adquiridos, valor e método de pagamento</li>
-        <li><strong>Logs de acesso ao leitor</strong> — data, hora e duração de cada sessão de leitura, para fins de segurança e proteção contra pirataria</li>
+        <li><strong>Fingerprint de dispositivo</strong> — identificador técnico do dispositivo (não inclui dados pessoais explícitos), armazenado para vincular o acesso a um único dispositivo por conta, conforme informado na compra</li>
+        <li><strong>Logs de acesso ao leitor</strong> — data, hora e tipo de interação (abertura, tentativas de cópia, captura de tela, uso de ferramentas de inspeção), para fins de segurança e proteção contra pirataria</li>
+        <li><strong>Dados de erros técnicos</strong> — em caso de falhas no site, informações técnicas anônimas são enviadas ao Sentry (ferramenta de monitoramento), sem identificação pessoal</li>
       </ul>
 
       <div style={h2}>2. Uso dos dados</div>
@@ -1711,11 +1684,22 @@ function PrivacyPage({ go }){
       <div style={h2}>5. Seus direitos (LGPD)</div>
       <p style={p}>Você tem direito a acessar, corrigir ou excluir seus dados pessoais a qualquer momento. Para exercer esses direitos, entre em contato pelo formulário de suporte do site. Solicitações de exclusão de conta serão processadas em até 30 dias.</p>
 
-      <div style={h2}>6. Cookies</div>
-      <p style={p}>Usamos apenas cookies essenciais para manter sua sessão autenticada. Não utilizamos cookies de rastreamento ou publicidade de terceiros.</p>
+      <div style={h2}>6. Terceiros e subprocessadores</div>
+      <p style={p}>Seus dados transitam pelos seguintes serviços de terceiros, cada um com sua própria política de privacidade:</p>
+      <ul style={{ paddingLeft: 20, marginBottom: 12, lineHeight: 2 }}>
+        <li><strong>Supabase</strong> — banco de dados, autenticação e armazenamento de arquivos (servidores nos EUA)</li>
+        <li><strong>Mercado Pago</strong> — processamento de pagamentos (recebe nome, email e CPF para fins fiscais)</li>
+        <li><strong>Resend</strong> — envio de emails transacionais (confirmação de compra, reset de senha)</li>
+        <li><strong>Sentry</strong> — monitoramento de erros técnicos (recebe dados técnicos anônimos em caso de falha)</li>
+        <li><strong>Vercel</strong> — hospedagem do site</li>
+      </ul>
+      <p style={p}>Não vendemos, alugamos ou compartilhamos dados com terceiros para fins publicitários ou comerciais.</p>
 
-      <div style={h2}>7. Contato</div>
-      <p style={p}>Para questões relacionadas à privacidade, entre em contato pelo formulário de suporte disponível no site.</p>
+      <div style={h2}>7. Cookies e armazenamento local</div>
+      <p style={p}>Utilizamos cookies e armazenamento local (localStorage) para manter sua sessão autenticada. O Sentry pode armazenar um identificador de sessão técnico para correlacionar erros. Não utilizamos cookies de rastreamento comportamental ou publicidade.</p>
+
+      <div style={h2}>8. Contato</div>
+      <p style={p}>Para questões relacionadas à privacidade ou para exercer seus direitos sob a LGPD (acesso, correção, portabilidade ou exclusão de dados), entre em contato pelo formulário de suporte disponível no site. Processamos solicitações em até 15 dias úteis.</p>
     </LegalPage>
   );
 }
