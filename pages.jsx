@@ -1118,14 +1118,21 @@ function PaymentReturn({ go, clearCart, refreshUser, currentUser, cart }){
       return;
     }
 
-    const forceCheck = () => {
-      // Chama o webhook com external_reference para forçar verificação no MP,
-      // sem depender do IPN chegar. Fire-and-forget — o próximo poll detecta o resultado.
-      fetch(`${window.SUPABASE_URL}/functions/v1/mercadopago-webhook?external_reference=${chargeId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: "{}",
-      }).catch(() => {});
+    const forceCheck = async () => {
+      // Chama o webhook com external_reference para forçar verificação no MP.
+      // Requer JWT do usuário autenticado — endpoint não é mais aberto.
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        if (!session?.access_token) return;
+        fetch(`${window.SUPABASE_URL}/functions/v1/mercadopago-webhook?external_reference=${chargeId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: "{}",
+        }).catch(() => {});
+      } catch { /* fire-and-forget */ }
     };
 
     // Força verificação imediata ao entrar na tela (não espera o IPN)

@@ -53,14 +53,17 @@ async function createProduct(p){
   const month = now.toLocaleDateString("pt-BR",{month:"short",year:"2-digit"}).replace(".","");
   let file_path = null, file_name = null;
   if (p.file){
-    const ext = p.file.name.split(".").pop() || "pdf";
+    if (p.file.type !== "application/pdf") {
+      return { error: "Apenas arquivos PDF são aceitos." };
+    }
+    const ext = "pdf";
     file_path = `${id}.${ext}`;
     file_name = p.file.name;
     try {
       // Upload usa timeout maior (60s) — PDFs grandes em conexão lenta
       const { error: upErr } = await Promise.race([
         sb.storage.from("resumos").upload(file_path, p.file, {
-          contentType: p.file.type || "application/pdf",
+          contentType: "application/pdf",
           upsert: false,
         }),
         new Promise((_, rej) => setTimeout(() => rej(new Error("Upload timeout (180s)")), 180000))
@@ -112,6 +115,9 @@ async function updateProduct(id, updates, newFile){
   if (updates.quiz_tsx  !== undefined) patch.quiz_tsx  = updates.quiz_tsx;
 
   if (newFile){
+    if (newFile.type !== "application/pdf") {
+      return { error: "Apenas arquivos PDF são aceitos." };
+    }
     try {
       const { data: cur } = await queryWithTimeout(
         sb.from("products").select("file_path").eq("id", id).maybeSingle(),
@@ -119,13 +125,12 @@ async function updateProduct(id, updates, newFile){
       );
       if (cur?.file_path){ try { await sb.storage.from("resumos").remove([cur.file_path]); } catch {} }
     } catch {}
-    const ext = (newFile.name.split(".").pop() || "pdf").toLowerCase();
-    const file_path = `${id}.${ext}`;
+    const file_path = `${id}.pdf`;
     try {
       // Upload usa timeout maior (60s)
       const { error: upErr } = await Promise.race([
         sb.storage.from("resumos").upload(file_path, newFile, {
-          contentType: newFile.type || "application/pdf",
+          contentType: "application/pdf",
           upsert: true,
         }),
         new Promise((_, rej) => setTimeout(() => rej(new Error("Upload timeout (180s)")), 180000))
@@ -223,7 +228,7 @@ async function uploadQuizImage(productId, questionId, file){
 }
 
 // ─────────── Storage (signed URLs) ───────────
-async function getSignedPdfUrl(filePath, expiresIn = 60*60){
+async function getSignedPdfUrl(filePath, expiresIn = 15*60){
   if (!filePath) return null;
   const res = await safe("getSignedPdfUrl", () => sb.storage.from("resumos").createSignedUrl(filePath, expiresIn), { data: null, error: null });
   return res?.data?.signedUrl || null;

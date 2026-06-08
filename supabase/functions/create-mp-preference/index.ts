@@ -52,8 +52,25 @@ Deno.serve(async (req) => {
       return json({ error: "CPF inválido" }, 400);
     }
 
+    // Busca preços diretamente do banco — nunca confiar em valores do cliente
+    const itemIds = (items as Array<{ id: string }>).map(i => i.id);
+    const { data: dbProducts, error: dbProductErr } = await db
+      .from("products")
+      .select("id, title, price")
+      .in("id", itemIds)
+      .eq("active", true);
+
+    if (dbProductErr || !dbProducts?.length) {
+      log("warn", "products_not_found", { correlation_id: correlationId, user_id: user.id, item_ids: itemIds });
+      return json({ error: "Um ou mais produtos não encontrados." }, 400);
+    }
+    if (dbProducts.length !== itemIds.length) {
+      log("warn", "products_mismatch", { correlation_id: correlationId, user_id: user.id, requested: itemIds.length, found: dbProducts.length });
+      return json({ error: "Um ou mais produtos não encontrados." }, 400);
+    }
+
+    const amount = dbProducts.reduce((s, p) => s + (p.price as number), 0);
     const externalRef = crypto.randomUUID();
-    const amount = (items as Array<{ price: number }>).reduce((s, i) => s + i.price, 0);
 
     const fallbackUrl = "https://resumosmed.com.br?payment_return=1";
     const backUrl = (completionUrl && completionUrl.startsWith("https://"))
@@ -63,11 +80,11 @@ Deno.serve(async (req) => {
     const body: Record<string, unknown> = {
       external_reference: externalRef,
       notification_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/mercadopago-webhook`,
-      items: (items as Array<{ id: string; title: string; price: number }>).map(item => ({
-        id: item.id,
-        title: item.title,
+      items: dbProducts.map(p => ({
+        id: p.id,
+        title: p.title,
         quantity: 1,
-        unit_price: item.price,
+        unit_price: p.price,
         currency_id: "BRL",
       })),
       payer: {
@@ -87,7 +104,7 @@ Deno.serve(async (req) => {
     log("info", "mp_preference_request", {
       correlation_id: correlationId,
       user_id: user.id,
-      items_count: items.length,
+      items_count: dbProducts.length,
       amount_brl: amount,
       cpf_provided: true,
       external_ref: externalRef,
@@ -128,7 +145,7 @@ Deno.serve(async (req) => {
     const { error: dbErr } = await db.from("pending_payments").insert({
       id:      externalRef,
       user_id: user.id,
-      items,
+      items:   dbProducts.map(p => ({ id: p.id, title: p.title, price: p.price })),
       amount,
       status:  "pending",
     });

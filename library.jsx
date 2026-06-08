@@ -167,7 +167,7 @@ function PdfReader({ id, go, currentUser }){
           if (mounted) setCanRead(access);
           if (access){
             try {
-              const url = await getSignedPdfUrl(prod.file_path, 60*60);
+              const url = await getSignedPdfUrl(prod.file_path, 15*60);
               if (mounted) setSignedUrl(url);
             } catch (e) { console.warn("[reader] signed url:", e); }
           }
@@ -217,7 +217,22 @@ function PdfReader({ id, go, currentUser }){
 
 function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
   const fakePages = useMemoLib(()=>buildPages(r), [r]);
-  const hasPdf = !!signedUrl;
+
+  // Cópia local da URL assinada — permite renovação automática sem re-montar o componente
+  const [activeSignedUrl, setActiveSignedUrl] = useStateLib(signedUrl);
+  useEffectLib(() => { setActiveSignedUrl(signedUrl); }, [signedUrl]);
+
+  // Renova 2 min antes do vencimento (TTL = 15 min → renova em 13 min)
+  useEffectLib(() => {
+    if (!activeSignedUrl || !r?.file_path) return;
+    const timer = setTimeout(async () => {
+      const newUrl = await getSignedPdfUrl(r.file_path, 15 * 60);
+      if (newUrl) setActiveSignedUrl(newUrl);
+    }, 13 * 60 * 1000);
+    return () => clearTimeout(timer);
+  }, [activeSignedUrl, r?.file_path]);
+
+  const hasPdf = !!activeSignedUrl;
   const [page, setPage] = useStateLib(0);
   const [showHelp, setShowHelp] = useStateLib(false);
   const [showTerms, setShowTerms] = useStateLib(false);
@@ -233,15 +248,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
 
   useEffectLib(()=>{
     if (r.quiz_json?.questions?.length) { setQuizData(r.quiz_json); return; }
-    if (r.quiz_tsx) {
-      try {
-        const src = r.quiz_tsx.split("\n").filter(l => !l.trim().startsWith("import ")).join("\n").replace(/\bexport\s+default\s+/g, "var _qdefault_ = ").replace(/\bexport\s+/g, "");
-        const compiled = Babel.transform(src, { presets:["react"], filename:"quiz.tsx" }).code;
-        const fn = new Function("React", `"use strict"; ${compiled}; if(typeof QUIZ_DATA!=="undefined")return QUIZ_DATA; if(typeof _qdefault_!=="undefined")return _qdefault_; return null;`);
-        const data = fn(React);
-        if (data?.questions?.length) setQuizData(data);
-      } catch(e){ console.error("[quiz/tsx]", e); }
-    }
+    // quiz_tsx removido por segurança — execução de código arbitrário do banco não é permitida
   }, [r.id]);
 
   // effAdmin: true só quando admin E não está no modo de teste
@@ -321,7 +328,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
     setPdfError("");
     pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
     const task = pdfjsLib.getDocument({
-      url: signedUrl,
+      url: activeSignedUrl,
       // disableStream/Range improve cross-origin compatibility
       disableStream: true,
       disableRange: true,
@@ -340,7 +347,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
       setPdfLoading(false);
     });
     return ()=>{ cancelled = true; try { task.destroy?.(); } catch {} };
-  }, [signedUrl, hasPdf]);
+  }, [activeSignedUrl, hasPdf]);
 
   // Render current page
   useEffectLib(()=>{

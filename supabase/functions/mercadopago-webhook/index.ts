@@ -24,10 +24,14 @@ Deno.serve(async (req) => {
   }
 
   const correlationId  = req.headers.get("x-correlation-id") ?? crypto.randomUUID();
-  const webhookSecret  = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET") ?? "";
+  const webhookSecret  = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
   const accessToken    = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
   if (!accessToken) {
     log("fatal", "missing_access_token", { correlation_id: correlationId });
+    return new Response("Internal Server Error", { status: 500 });
+  }
+  if (!webhookSecret) {
+    log("fatal", "missing_webhook_secret", { correlation_id: correlationId });
     return new Response("Internal Server Error", { status: 500 });
   }
 
@@ -47,9 +51,29 @@ Deno.serve(async (req) => {
 
   const dataId = queryId || payload.data?.id || "";
 
-  // ── MODO FORCE-CHECK: chamado pelo PaymentReturn para garantir processamento ──
-  // Não depende de IPN; busca ativamente o pagamento no MP e processa se aprovado.
+  // ── MODO FORCE-CHECK: chamado pelo PaymentReturn — exige JWT do usuário ──
   if (externalRefQuery && !dataId) {
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    if (!token) {
+      log("warn", "force_check_unauthenticated", { correlation_id: correlationId });
+      return new Response("Unauthorized", { status: 401, headers: CORS });
+    }
+    const { data: { user: fcUser }, error: fcAuthErr } = await db.auth.getUser(token);
+    if (fcAuthErr || !fcUser) {
+      log("warn", "force_check_invalid_session", { correlation_id: correlationId });
+      return new Response("Unauthorized", { status: 401, headers: CORS });
+    }
+    // Verifica ownership: só o dono do pagamento pode forçar o check
+    const { data: pendingOwner } = await db
+      .from("pending_payments")
+      .select("user_id")
+      .eq("id", externalRefQuery)
+      .maybeSingle();
+    if (!pendingOwner || pendingOwner.user_id !== fcUser.id) {
+      log("warn", "force_check_forbidden", { correlation_id: correlationId, user_id: fcUser.id, external_ref: externalRefQuery });
+      return new Response("Forbidden", { status: 403, headers: CORS });
+    }
     const status = await processExternalRef(externalRefQuery, accessToken, db);
     return new Response(JSON.stringify({ status }), {
       status: 200,
@@ -57,7 +81,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── MODO IPN / DASHBOARD WEBHOOK — verificação HMAC opcional ──
+  // ── MODO IPN / DASHBOARD WEBHOOK — verificação HMAC obrigatória ──
   const xSignature = req.headers.get("x-signature") || "";
   const xRequestId = req.headers.get("x-request-id") || "";
   const sigParts   = Object.fromEntries(
@@ -65,20 +89,23 @@ Deno.serve(async (req) => {
   );
   const receivedHash = sigParts["v1"] || "";
 
-  if (receivedHash && webhookSecret) {
-    const ts        = sigParts["ts"] || "";
-    const manifest  = `id:${dataId};request-id:${xRequestId};ts:${ts}`;
-    const encoder   = new TextEncoder();
-    const cryptoKey = await crypto.subtle.importKey(
-      "raw", encoder.encode(webhookSecret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
-    );
-    const sigBuf      = await crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(manifest));
-    const expectedHash = Array.from(new Uint8Array(sigBuf))
-      .map(b => b.toString(16).padStart(2, "0")).join("");
-    if (receivedHash !== expectedHash) {
-      log("error", "webhook_signature_invalid", { correlation_id: correlationId, data_id: dataId });
-      return new Response("Forbidden", { status: 401, headers: CORS });
-    }
+  if (!receivedHash) {
+    log("warn", "missing_signature", { correlation_id: correlationId, data_id: dataId });
+    return new Response("Forbidden", { status: 401, headers: CORS });
+  }
+
+  const ts        = sigParts["ts"] || "";
+  const manifest  = `id:${dataId};request-id:${xRequestId};ts:${ts}`;
+  const encoder   = new TextEncoder();
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw", encoder.encode(webhookSecret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+  );
+  const sigBuf      = await crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(manifest));
+  const expectedHash = Array.from(new Uint8Array(sigBuf))
+    .map(b => b.toString(16).padStart(2, "0")).join("");
+  if (receivedHash !== expectedHash) {
+    log("error", "webhook_signature_invalid", { correlation_id: correlationId, data_id: dataId });
+    return new Response("Forbidden", { status: 401, headers: CORS });
   }
 
   // Responde 200 ao MP imediatamente; processa em background
@@ -154,13 +181,32 @@ async function processPaymentId(
   }
 
   const method = payment.payment_type_id === "credit_card" ? "Cartão" : "Pix";
-  const rows   = (updated.items as Array<{ id: string; title: string; price: number }>).map(item => ({
-    user_id:       updated.user_id,
-    product_id:    item.id,
-    product_title: item.title,
-    price:         item.price,
-    method,
-  }));
+
+  // Valida product_ids contra o banco — garante preços e títulos canônicos
+  const pendingItems = updated.items as Array<{ id: string; title: string; price: number }>;
+  const { data: validProducts } = await db
+    .from("products")
+    .select("id, title, price")
+    .in("id", pendingItems.map(i => i.id));
+
+  const validMap = new Map((validProducts || []).map(p => [p.id as string, p]));
+  const rows = pendingItems
+    .filter(item => validMap.has(item.id))
+    .map(item => {
+      const prod = validMap.get(item.id)!;
+      return {
+        user_id:       updated.user_id,
+        product_id:    prod.id,
+        product_title: prod.title,
+        price:         prod.price, // preço do banco
+        method,
+      };
+    });
+
+  if (!rows.length) {
+    log("fatal", "no_valid_products_for_purchase", { external_ref: externalRef, user_id: updated.user_id });
+    return;
+  }
 
   const { error: purchaseErr } = await db.from("purchases").insert(rows);
   if (purchaseErr) {
