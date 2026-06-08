@@ -136,7 +136,7 @@ function htmlTicketResolved(name: string, email: string): string {
 // ─── Handler principal ────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization,content-type" } });
+    return new Response("ok", { headers: { "Access-Control-Allow-Origin": "https://resumosmed.com", "Access-Control-Allow-Headers": "authorization,content-type" } });
   }
 
   if (!RESEND_KEY) {

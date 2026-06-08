@@ -1,16 +1,23 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "content-type, authorization, x-client-info, apikey, x-correlation-id",
-};
+const ALLOWED_ORIGINS = ["https://resumosmed.com", "https://resumosmed.com.br"];
+function corsHeaders(origin: string) {
+  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "content-type, authorization, x-client-info, apikey, x-correlation-id",
+    "Vary": "Origin",
+  };
+}
 
 function log(level: "info" | "warn" | "error", event: string, data: Record<string, unknown> = {}) {
   console.log(JSON.stringify({ level, ts: new Date().toISOString(), service: "save-device-fingerprint", event, ...data }));
 }
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get("origin") ?? "";
+  const CORS = corsHeaders(origin);
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS });
   }

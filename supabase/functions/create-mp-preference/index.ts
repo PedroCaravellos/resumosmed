@@ -6,12 +6,27 @@ function log(level: "info" | "warn" | "error" | "fatal", event: string, data: Re
   console.log(JSON.stringify({ level, ts: new Date().toISOString(), service: "create-mp-preference", event, ...data }));
 }
 
+const ALLOWED_ORIGINS = ["https://resumosmed.com", "https://resumosmed.com.br"];
+
 Deno.serve(async (req) => {
+  const origin = req.headers.get("origin") ?? "";
+  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const json = (body: unknown, status = 200, correlationId?: string) => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": allowOrigin,
+      "Vary": "Origin",
+    };
+    if (correlationId) headers["X-Correlation-Id"] = correlationId;
+    return new Response(JSON.stringify(body), { status, headers });
+  };
+
   if (req.method === "OPTIONS") {
     return new Response(null, {
       headers: {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": allowOrigin,
         "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-correlation-id",
+        "Vary": "Origin",
       },
     });
   }
@@ -177,11 +192,3 @@ Deno.serve(async (req) => {
   }
 });
 
-function json(body: unknown, status = 200, correlationId?: string) {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-  };
-  if (correlationId) headers["X-Correlation-Id"] = correlationId;
-  return new Response(JSON.stringify(body), { status, headers });
-}
