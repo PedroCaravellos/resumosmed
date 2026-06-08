@@ -130,12 +130,6 @@ async function updatePassword(newPassword){
   return { ok: true };
 }
 
-async function recordPurchase(user, items){
-  const r = await createPurchases(user, items);
-  if (r.error) return { error: r.error };
-  return { purchases: r.purchases };
-}
-
 function traduzirErro(msg){
   const m = (msg||"").toLowerCase();
   if (m.includes("invalid login")) return "Email ou senha incorretos.";
@@ -492,7 +486,7 @@ function Signup({ go, onAuth }){
 
 // expose
 Object.assign(window, {
-  loadCurrentUser, loadProfileFor, signIn, signUp, signOut, recordPurchase,
+  loadCurrentUser, loadProfileFor, signIn, signUp, signOut,
   resetPassword, updatePassword,
   generateDeviceFingerprint, getDeviceName,
   Login, Signup, ForgotPassword, ResetPassword,

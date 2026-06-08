@@ -203,16 +203,6 @@ async function fetchUsersCount(){
   return res?.count || 0;
 }
 
-async function createPurchases(user, items){
-  if (!user || !items?.length) return { error:"Sem usuário ou itens." };
-  const rows = items.map(it => ({
-    user_id: user.id, product_id: it.id, product_title: it.title,
-    price: it.price, method: "Pix",
-  }));
-  const res = await safe("createPurchases", () => sb.from("purchases").insert(rows).select(), { data: null, error: { message: "timeout" } });
-  if (res?.error) return { error: res.error.message };
-  return { purchases: res.data };
-}
 
 // ─────────── Quiz image upload ───────────
 const ALLOWED_IMAGE_TYPES = {
@@ -455,7 +445,7 @@ async function addTicketReply(ticketId, userId, message, isAdmin = false){
 Object.assign(window, {
   fetchProducts, fetchProductById, createProduct, updateProduct, deleteProduct,
   fetchUserPurchaseIds, fetchUserPurchases, fetchAllSales, fetchUsersCount,
-  createPurchases, getSignedPdfUrl, fetchPendingPaymentStatus,
+  getSignedPdfUrl, fetchPendingPaymentStatus,
   normalizeProduct,
   logEvent, hasAcceptedTerms, acceptTerms, saveDeviceFingerprint,
   fetchUserActivity, fetchUserLogs, setUserBan,

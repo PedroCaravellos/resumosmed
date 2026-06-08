@@ -18,6 +18,12 @@ function log(level: "info" | "warn" | "error", event: string, data: Record<strin
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin") ?? "";
   const CORS = corsHeaders(origin);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { "Content-Type": "application/json", ...CORS },
+    });
+
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: CORS });
   }
@@ -63,10 +69,3 @@ Deno.serve(async (req) => {
   log("info", "fingerprint_saved", { correlation_id: correlationId, user_id: user.id });
   return json({ ok: true });
 });
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", ...CORS },
-  });
-}
