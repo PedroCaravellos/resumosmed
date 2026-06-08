@@ -215,11 +215,19 @@ async function createPurchases(user, items){
 }
 
 // ─────────── Quiz image upload ───────────
+const ALLOWED_IMAGE_TYPES = {
+  "image/jpeg": "jpg",
+  "image/png":  "png",
+  "image/webp": "webp",
+  "image/gif":  "gif",
+};
+
 async function uploadQuizImage(productId, questionId, file){
-  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const ext = ALLOWED_IMAGE_TYPES[file.type];
+  if (!ext) return { error: "Apenas imagens JPEG, PNG, WebP ou GIF são aceitas." };
   const path = `${productId}/${questionId}.${ext}`;
   const { error } = await Promise.race([
-    sb.storage.from("quiz-images").upload(path, file, { contentType: file.type || "image/jpeg", upsert: true }),
+    sb.storage.from("quiz-images").upload(path, file, { contentType: file.type, upsert: true }),
     new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 30000)),
   ]);
   if (error) return { error: error.message };

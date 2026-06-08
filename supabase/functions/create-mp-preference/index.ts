@@ -53,7 +53,13 @@ Deno.serve(async (req) => {
     }
 
     // Busca preços diretamente do banco — nunca confiar em valores do cliente
-    const itemIds = (items as Array<{ id: string }>).map(i => i.id);
+    // Set garante que duplicatas no carrinho sejam rejeitadas explicitamente
+    const itemIds = [...new Set((items as Array<{ id: string }>).map(i => i.id))];
+    if (itemIds.length !== items.length) {
+      log("warn", "duplicate_items_in_cart", { correlation_id: correlationId, user_id: user.id });
+      return json({ error: "Carrinho contém itens duplicados." }, 400);
+    }
+
     const { data: dbProducts, error: dbProductErr } = await db
       .from("products")
       .select("id, title, price")

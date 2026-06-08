@@ -32,31 +32,25 @@ Deno.serve(async (req) => {
   const { fingerprint, deviceName } = await req.json();
   if (!fingerprint) return json({ error: "fingerprint obrigatório" }, 400);
 
-  // Verifica se já existe fingerprint vinculado a outro dispositivo
-  const { data: existing, error: lookupErr } = await db
-    .from("profiles")
-    .select("device_fingerprint")
-    .eq("id", user.id)
-    .single();
-
-  if (lookupErr) {
-    log("error", "fingerprint_lookup_failed", { correlation_id: correlationId, user_id: user.id, db_error: lookupErr.message });
-    return json({ error: "Erro interno" }, 500);
-  }
-
-  if (existing?.device_fingerprint && existing.device_fingerprint !== fingerprint) {
-    log("warn", "fingerprint_already_bound", { correlation_id: correlationId, user_id: user.id });
-    return json({ error: "Dispositivo já vinculado. Contate o suporte para trocar." }, 403);
-  }
-
-  const { error } = await db
+  // UPDATE condicional atômico: só vincula se device_fingerprint for NULL ou igual ao atual.
+  // Elimina a race condition de dois tabs simultâneos no primeiro acesso —
+  // apenas um UPDATE ganha; o outro vê rowCount=0 e recebe 403.
+  const { data: updated, error } = await db
     .from("profiles")
     .update({ device_fingerprint: fingerprint, device_name: deviceName })
-    .eq("id", user.id);
+    .eq("id", user.id)
+    .or(`device_fingerprint.is.null,device_fingerprint.eq.${fingerprint}`)
+    .select("id");
 
   if (error) {
     log("error", "fingerprint_save_failed", { correlation_id: correlationId, user_id: user.id, db_error: error.message });
-    return json({ error: error.message }, 500);
+    return json({ error: "Erro interno" }, 500);
+  }
+
+  if (!updated?.length) {
+    // 0 linhas atualizadas = outro dispositivo já está vinculado
+    log("warn", "fingerprint_already_bound", { correlation_id: correlationId, user_id: user.id });
+    return json({ error: "Dispositivo já vinculado. Contate o suporte para trocar." }, 403);
   }
 
   log("info", "fingerprint_saved", { correlation_id: correlationId, user_id: user.id });

@@ -183,11 +183,20 @@ async function processPaymentId(
   const method = payment.payment_type_id === "credit_card" ? "Cartão" : "Pix";
 
   // Valida product_ids contra o banco — garante preços e títulos canônicos
+  // Filtra apenas produtos ativos (mesmo que já tenham sido desativados após a compra)
   const pendingItems = updated.items as Array<{ id: string; title: string; price: number }>;
-  const { data: validProducts } = await db
+  const { data: validProducts, error: validProductsErr } = await db
     .from("products")
     .select("id, title, price")
-    .in("id", pendingItems.map(i => i.id));
+    .in("id", pendingItems.map(i => i.id))
+    .eq("active", true);
+
+  if (validProductsErr) {
+    // Falha de DB: reverte status para "pending" para permitir reprocessamento futuro
+    log("fatal", "product_lookup_failed", { external_ref: externalRef, user_id: updated.user_id, db_error: validProductsErr.message });
+    await db.from("pending_payments").update({ status: "pending" }).eq("id", externalRef);
+    return;
+  }
 
   const validMap = new Map((validProducts || []).map(p => [p.id as string, p]));
   const rows = pendingItems
