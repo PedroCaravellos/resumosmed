@@ -202,7 +202,7 @@ function AdminUpload(){
     setForm({ title:"", area:"cardio", price: 39, pages: 30, topics:"", previewSection:"", previewHighlight:"", previewBox1:"", previewBox2:"" });
     setFile(null);
     if (fileRef.current) fileRef.current.value = "";
-    setQuizJson(null); setQuizTsx(null); setQuizPreview(null); setQuizErr("");
+    setQuizJson(null); setQuizPreview(null); setQuizErr("");
     if (quizFileRef.current) quizFileRef.current.value = "";
     setTimeout(()=>setSuccess(null), 6000);
   };

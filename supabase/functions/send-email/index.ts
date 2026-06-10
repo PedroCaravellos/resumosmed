@@ -139,6 +139,14 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: { "Access-Control-Allow-Origin": "https://resumosmed.com", "Access-Control-Allow-Headers": "authorization,content-type" } });
   }
 
+  // Apenas chamadas internas autorizadas (service role key)
+  const callerKey = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!serviceKey || callerKey !== serviceKey) {
+    console.error("[send-email] unauthorized call rejected");
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
+
   if (!RESEND_KEY) {
     console.error("[send-email] RESEND_API_KEY não configurada");
     return new Response(JSON.stringify({ error: "Email service not configured" }), { status: 500 });
