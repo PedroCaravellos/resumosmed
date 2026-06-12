@@ -17,8 +17,10 @@ const AREAS = [
   { id: "radio",   name: "Radiologia",         color: "var(--acc-3)" },
   { id: "fisio",   name: "Fisiologia",         color: "var(--acc-2)" },
   { id: "histo",   name: "Histologia",         color: "var(--acc-1)" },
-  { id: "semio",   name: "Semiologia Clínica", color: "var(--primary)" },
-  { id: "epi",     name: "Epidemiologia",      color: "var(--acc-3)" },
+  { id: "semio",    name: "Semiologia Clínica",                  color: "var(--primary)" },
+  { id: "epi",      name: "Epidemiologia",                        color: "var(--acc-3)" },
+  { id: "ortoped",  name: "Ortopedia",                            color: "var(--acc-1)" },
+  { id: "lideranca",name: "Comunicação e Liderança em Saúde",     color: "var(--acc-4)" },
 ];
 
 const RESUMOS = [
@@ -173,6 +175,30 @@ const Illu = {
       <circle cx="42" cy="47" r="8" stroke={bg} strokeWidth="2" fill="none" opacity=".45"/>
     </svg>
   ),
+  Ortoped: ({ size=42, color="var(--acc-1)", bg="var(--bg)" }) => (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <rect x="2" y="2" width="60" height="60" rx="16" fill={color}/>
+      <g transform="rotate(45 32 32)">
+        <rect x="21" y="29.5" width="22" height="5" rx="2.5" fill={bg}/>
+        <circle cx="20" cy="26" r="5.5" fill={bg}/>
+        <circle cx="20" cy="38" r="5.5" fill={bg}/>
+        <circle cx="44" cy="26" r="5.5" fill={bg}/>
+        <circle cx="44" cy="38" r="5.5" fill={bg}/>
+      </g>
+    </svg>
+  ),
+  Lider: ({ size=42, color="var(--acc-4)", bg="var(--bg)" }) => (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
+      <rect x="2" y="2" width="60" height="60" rx="16" fill={color}/>
+      <rect x="9" y="13" width="36" height="24" rx="9" fill={bg}/>
+      <path d="M17 37 L13 46 L26 39" fill={bg}/>
+      <circle cx="20" cy="25" r="3.5" fill={color}/>
+      <circle cx="30" cy="25" r="3.5" fill={color}/>
+      <circle cx="40" cy="25" r="3.5" fill={color}/>
+      <rect x="27" y="36" width="26" height="16" rx="7" fill={bg} opacity=".6"/>
+      <path d="M45 52 L50 58 L40 54" fill={bg} opacity=".6"/>
+    </svg>
+  ),
 };
 
 const ILLU_FOR_AREA = {
@@ -189,8 +215,10 @@ const ILLU_FOR_AREA = {
   radio: Illu.Radio,
   fisio: Illu.Fisio,
   histo: Illu.Histo,
-  semio: Illu.Cross,
-  epi:   Illu.Brain,
+  semio:    Illu.Cross,
+  epi:      Illu.Brain,
+  ortoped:  Illu.Ortoped,
+  lideranca:Illu.Lider,
 };
 
 // ─────────── Logo ───────────
