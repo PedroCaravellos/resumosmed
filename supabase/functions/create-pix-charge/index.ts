@@ -2,6 +2,18 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ABACATEPAY_API = "https://api.abacatepay.com/v2";
 
+function validarCpf(d: string): boolean {
+  if (/^(\d)\1{10}$/.test(d)) return false;
+  let s = 0;
+  for (let i = 0; i < 9; i++) s += +d[i] * (10 - i);
+  let r = s % 11;
+  if ((r < 2 ? 0 : 11 - r) !== +d[9]) return false;
+  s = 0;
+  for (let i = 0; i < 10; i++) s += +d[i] * (11 - i);
+  r = s % 11;
+  return (r < 2 ? 0 : 11 - r) === +d[10];
+}
+
 Deno.serve(async (req) => {
   // CORS preflight
   if (req.method === "OPTIONS") {
@@ -37,7 +49,7 @@ Deno.serve(async (req) => {
     }
 
     const digits = cpf.replace(/\D/g, "");
-    if (digits.length !== 11) return json({ error: "CPF inválido" });
+    if (digits.length !== 11 || !validarCpf(digits)) return json({ error: "CPF inválido" });
     const taxId = `${digits.slice(0,3)}.${digits.slice(3,6)}.${digits.slice(6,9)}-${digits.slice(9)}`;
 
     // cellphone obrigatório pela API — aceita do frontend ou usa placeholder

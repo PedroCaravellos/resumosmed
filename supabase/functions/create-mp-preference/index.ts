@@ -8,6 +8,18 @@ function log(level: "info" | "warn" | "error" | "fatal", event: string, data: Re
 
 const ALLOWED_ORIGINS = ["https://resumosmed.com", "https://resumosmed.com.br"];
 
+function validarCpf(d: string): boolean {
+  if (/^(\d)\1{10}$/.test(d)) return false;
+  let s = 0;
+  for (let i = 0; i < 9; i++) s += +d[i] * (10 - i);
+  let r = s % 11;
+  if ((r < 2 ? 0 : 11 - r) !== +d[9]) return false;
+  s = 0;
+  for (let i = 0; i < 10; i++) s += +d[i] * (11 - i);
+  r = s % 11;
+  return (r < 2 ? 0 : 11 - r) === +d[10];
+}
+
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin") ?? "";
   const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
@@ -63,7 +75,7 @@ Deno.serve(async (req) => {
     }
 
     const digits = (cpf || "").replace(/\D/g, "");
-    if (digits.length !== 11) {
+    if (digits.length !== 11 || !validarCpf(digits)) {
       return json({ error: "CPF inválido" }, 400);
     }
 

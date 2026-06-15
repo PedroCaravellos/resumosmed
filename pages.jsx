@@ -958,6 +958,18 @@ const maskCpf = (v) => v.replace(/\D/g,"").slice(0,11)
   .replace(/(\d{3})(\d)/,"$1.$2")
   .replace(/(\d{3})(\d{1,2})$/,"$1-$2");
 
+const validarCpf = (d) => {
+  if (/^(\d)\1{10}$/.test(d)) return false;
+  let s = 0;
+  for (let i = 0; i < 9; i++) s += +d[i] * (10 - i);
+  let r = s % 11;
+  if ((r < 2 ? 0 : 11 - r) !== +d[9]) return false;
+  s = 0;
+  for (let i = 0; i < 10; i++) s += +d[i] * (11 - i);
+  r = s % 11;
+  return (r < 2 ? 0 : 11 - r) === +d[10];
+};
+
 function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser }){
   const [paying, setPaying] = useStateP(false);
   const [errMsg, setErrMsg] = useStateP("");
@@ -967,7 +979,7 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
   const checkout = async () => {
     if (!currentUser){ go({ name:"login" }); return; }
     const rawCpf = cpf.replace(/\D/g,"");
-    if (rawCpf.length !== 11){ setErrMsg("Informe um CPF válido para continuar."); return; }
+    if (rawCpf.length !== 11 || !validarCpf(rawCpf)){ setErrMsg("CPF inválido. Verifique os números e tente novamente."); return; }
     setPaying(true);
     setErrMsg("");
     try {
