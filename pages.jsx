@@ -994,12 +994,22 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
         body: { items: cart, cpf: rawCpf, name: currentUser.name, email: currentUser.email, completionUrl },
       });
       if (error || !data?.checkoutUrl){
-        setErrMsg("Não foi possível criar o checkout: " + (data?.error || error?.message || "tente novamente"));
+        const reason = data?.error || error?.message || "tente novamente";
+        if (window.Sentry) window.Sentry.captureMessage("checkout_failed: " + reason, {
+          level: "error",
+          tags: { flow: "checkout" },
+          extra: { correlation_id: correlationId, session_id: window.__SESSION_ID },
+        });
+        setErrMsg("Não foi possível criar o checkout: " + reason);
         return;
       }
       sessionStorage.setItem("pending_payment", data.chargeId);
       window.location.href = data.checkoutUrl;
     } catch(e) {
+      if (window.Sentry) window.Sentry.captureException(e, {
+        tags: { flow: "checkout" },
+        extra: { session_id: window.__SESSION_ID },
+      });
       setErrMsg("Erro ao conectar com o servidor de pagamentos.");
     } finally {
       setPaying(false);

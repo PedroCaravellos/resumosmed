@@ -121,6 +121,15 @@ function App(){
   }, []);
 
   useEffectA(()=>{
+    if (!window.Sentry) return;
+    if (currentUser) {
+      window.Sentry.setUser({ id: currentUser.id, email: currentUser.email });
+    } else {
+      window.Sentry.setUser(null);
+    }
+  }, [currentUser]);
+
+  useEffectA(()=>{
     applyPalette(t.palette);
     document.documentElement.dataset.dark = String(!!t.dark);
     document.documentElement.dataset.density = t.density;
