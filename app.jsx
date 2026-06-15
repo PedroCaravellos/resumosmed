@@ -121,7 +121,7 @@ function App(){
   }, []);
 
   useEffectA(()=>{
-    if (!window.Sentry) return;
+    if (typeof window.Sentry?.setUser !== 'function') return;
     if (currentUser) {
       window.Sentry.setUser({ id: currentUser.id, email: currentUser.email });
     } else {
