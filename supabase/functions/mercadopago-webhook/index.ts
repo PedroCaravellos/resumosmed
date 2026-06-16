@@ -145,10 +145,16 @@ Deno.serve(async (req) => {
 
 // Busca pagamento aprovado pelo external_reference e processa se necessário
 async function processExternalRef(externalRef: string, accessToken: string, db: SupabaseClient): Promise<string> {
-  // Se já completado no banco, retorna imediatamente
+  // Se já completado no banco, verifica se compra foi de fato criada
   const { data: existing } = await db
-    .from("pending_payments").select("status").eq("id", externalRef).maybeSingle();
-  if (existing?.status === "completed") return "completed";
+    .from("pending_payments").select("status, user_id").eq("id", externalRef).maybeSingle();
+  if (existing?.status === "completed") {
+    const { data: purchases } = await db
+      .from("purchases").select("id").eq("user_id", existing.user_id).limit(1);
+    if (purchases?.length) return "completed";
+    // completed mas sem purchase → reprocessa
+    await db.from("pending_payments").update({ status: "pending" }).eq("id", externalRef);
+  }
 
   // Busca no MP por external_reference
   const searchRes  = await fetch(
@@ -164,17 +170,17 @@ async function processExternalRef(externalRef: string, accessToken: string, db: 
     return "pending";
   }
 
-  await processPaymentId(String(approved.id), accessToken, db, approved);
-  return "completed";
+  const ok = await processPaymentId(String(approved.id), accessToken, db, approved);
+  return ok ? "completed" : "pending";
 }
 
-// Processa um pagamento MP pelo ID
+// Processa um pagamento MP pelo ID. Retorna true se a compra foi criada com sucesso.
 async function processPaymentId(
   paymentId: string,
   accessToken: string,
   db: SupabaseClient,
   payment?: MPPayment,
-) {
+): Promise<boolean> {
   if (!payment) {
     const res = await fetch(`${MP_API}/v1/payments/${paymentId}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -183,10 +189,10 @@ async function processPaymentId(
   }
 
   log("info", "payment_status_check", { payment_id: paymentId, status: payment.status, external_ref: payment.external_reference });
-  if (payment.status !== "approved") return;
+  if (payment.status !== "approved") return false;
 
   const externalRef = payment.external_reference as string;
-  if (!externalRef) { log("warn", "missing_external_reference", { payment_id: paymentId }); return; }
+  if (!externalRef) { log("warn", "missing_external_reference", { payment_id: paymentId }); return false; }
 
   // Atômico: só processa se ainda "pending" — evita race condition entre IPN e force-check
   const { data: updated, error: updateErr } = await db
@@ -199,56 +205,53 @@ async function processPaymentId(
 
   if (updateErr || !updated) {
     log("warn", "payment_already_processed_or_not_found", { external_ref: externalRef, db_error: updateErr?.message });
-    return;
+    return false;
   }
+
+  const revert = async (reason: string, meta: Record<string, unknown> = {}) => {
+    log("fatal", reason, { external_ref: externalRef, user_id: updated.user_id, ...meta });
+    await db.from("pending_payments").update({ status: "pending" }).eq("id", externalRef);
+  };
 
   const method = payment.payment_type_id === "credit_card" ? "Cartão" : "Pix";
 
-  // Valida product_ids contra o banco — garante preços e títulos canônicos
-  // Filtra apenas produtos ativos (mesmo que já tenham sido desativados após a compra)
+  // Busca produtos pelo ID sem filtrar por active — cliente pagou, deve receber
+  // independente de o produto ter sido desativado depois da compra
   const pendingItems = updated.items as Array<{ id: string; title: string; price: number }>;
-  const { data: validProducts, error: validProductsErr } = await db
+  const { data: dbProducts, error: validProductsErr } = await db
     .from("products")
     .select("id, title, price")
-    .in("id", pendingItems.map(i => i.id))
-    .eq("active", true);
+    .in("id", pendingItems.map(i => i.id));
 
   if (validProductsErr) {
-    // Falha de DB: reverte status para "pending" para permitir reprocessamento futuro
-    log("fatal", "product_lookup_failed", { external_ref: externalRef, user_id: updated.user_id, db_error: validProductsErr.message });
-    await db.from("pending_payments").update({ status: "pending" }).eq("id", externalRef);
-    return;
+    await revert("product_lookup_failed", { db_error: validProductsErr.message });
+    return false;
   }
 
-  const validMap = new Map((validProducts || []).map(p => [p.id as string, p]));
-  const rows = pendingItems
-    .filter(item => validMap.has(item.id))
-    .map(item => {
-      const prod = validMap.get(item.id)!;
-      return {
-        user_id:       updated.user_id,
-        product_id:    prod.id,
-        product_title: prod.title,
-        price:         prod.price, // preço do banco
-        method,
-      };
-    });
+  // Se algum produto não existe mais no banco, usa título/preço do pending_payment como fallback
+  const dbMap = new Map((dbProducts || []).map(p => [p.id as string, p]));
+  const rows = pendingItems.map(item => {
+    const prod = dbMap.get(item.id);
+    return {
+      user_id:       updated.user_id,
+      product_id:    item.id,
+      product_title: prod?.title ?? item.title,
+      price:         prod?.price ?? item.price,
+      method,
+    };
+  });
 
   if (!rows.length) {
-    log("fatal", "no_valid_products_for_purchase", { external_ref: externalRef, user_id: updated.user_id });
-    return;
+    await revert("no_products_for_purchase");
+    return false;
   }
 
   const { error: purchaseErr } = await db.from("purchases").insert(rows);
   if (purchaseErr) {
-    log("fatal", "purchase_insert_failed", {
-      external_ref: externalRef,
-      user_id: updated.user_id,
-      items_count: rows.length,
-      db_error: purchaseErr.message,
-    });
-    return;
+    await revert("purchase_insert_failed", { items_count: rows.length, db_error: purchaseErr.message });
+    return false;
   }
+
   log("info", "payment_confirmed", { external_ref: externalRef, user_id: updated.user_id, method, items_count: rows.length });
 
   // Email de confirmação — fire-and-forget
@@ -272,4 +275,6 @@ async function processPaymentId(
       });
     }
   } catch (e) { log("warn", "email_send_failed", { external_ref: externalRef, error: (e as Error)?.message }); }
+
+  return true;
 }
