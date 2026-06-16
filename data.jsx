@@ -308,6 +308,11 @@ async function setUserBan(targetId, banned, reason){
   return res?.error ? { error: res.error.message } : { ok: true };
 }
 
+async function resetUserDevice(targetId){
+  const res = await safe("resetUserDevice", () => sb.rpc("admin_reset_device", { target_user: targetId }), { error: { message: "timeout" } });
+  return res?.error ? { error: res.error.message } : { ok: true };
+}
+
 async function fetchPendingPaymentStatus(chargeId){
   if (!chargeId) return null;
   const res = await safe("fetchPendingPaymentStatus", () => sb
@@ -439,7 +444,7 @@ Object.assign(window, {
   getSignedPdfUrl, fetchPendingPaymentStatus,
   normalizeProduct,
   logEvent, hasAcceptedTerms, acceptTerms, saveDeviceFingerprint,
-  fetchUserActivity, fetchUserLogs, setUserBan,
+  fetchUserActivity, fetchUserLogs, setUserBan, resetUserDevice,
   adminGrantPurchase, adminRevokePurchase, saveQuizJson, uploadQuizImage,
   fetchUserTickets, submitSupportTicket, fetchAllTickets, resolveTicket, deleteTicket,
   fetchTicketReplies, addTicketReply,

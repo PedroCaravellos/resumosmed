@@ -1053,6 +1053,7 @@ function AdminUsers(){
   const [filter, setFilter] = useStateAdmin("all"); // all | flagged | banned
   const [details, setDetails] = useStateAdmin(null);
   const [libraryUser, setLibraryUser] = useStateAdmin(null);
+  const [resetDeviceUser, setResetDeviceUser] = useStateAdmin(null);
 
   const reload = async () => {
     setLoading(true);
@@ -1180,6 +1181,9 @@ function AdminUsers(){
                       <IconBtn title="Ver logs" onClick={()=>setDetails(u)}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
                       </IconBtn>
+                      <IconBtn title="Resetar dispositivo" onClick={()=>setResetDeviceUser(u)}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+                      </IconBtn>
                       <button onClick={()=>toggleBan(u)} className="btn" style={{padding:"6px 12px", fontSize: 12, background: u.banned ? "var(--acc-2)" : "var(--primary)", color: u.banned ? "var(--fg)" : "var(--primary-ink)", borderColor: u.banned ? "var(--acc-2)" : "var(--primary)"}}>
                         {u.banned ? "Desbanir" : "Banir"}
                       </button>
@@ -1195,6 +1199,60 @@ function AdminUsers(){
 
       {details && <UserLogsModal user={details} onClose={()=>setDetails(null)}/>}
       {libraryUser && <UserLibraryModal user={libraryUser} onClose={()=>setLibraryUser(null)}/>}
+      {resetDeviceUser && <ResetDeviceModal user={resetDeviceUser} onClose={()=>setResetDeviceUser(null)}/>}
+    </div>
+  );
+}
+
+function ResetDeviceModal({ user, onClose }){
+  const [busy, setBusy] = useStateAdmin(false);
+  const [err, setErr] = useStateAdmin(null);
+  const [done, setDone] = useStateAdmin(false);
+
+  useEffectAdmin(()=>{
+    const k = (e)=>{ if (e.key === "Escape" && !busy) onClose(); };
+    document.addEventListener("keydown", k);
+    return ()=>document.removeEventListener("keydown", k);
+  }, [busy]);
+
+  const confirmReset = async () => {
+    setBusy(true);
+    setErr(null);
+    const r = await resetUserDevice(user.id);
+    setBusy(false);
+    if (r.error){ setErr(r.error); return; }
+    setDone(true);
+  };
+
+  return (
+    <div onClick={(e)=>{ if (e.target === e.currentTarget && !busy) onClose(); }}
+      style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.45)", backdropFilter:"blur(4px)", display:"flex", alignItems:"center", justifyContent:"center", zIndex: 1000, padding: 20 }}>
+      <div style={{ background:"var(--surface)", borderRadius:"var(--radius-lg)", boxShadow:"var(--shadow-pop)", padding: 28, width: 420, maxWidth:"100%" }}>
+        {done ? (
+          <>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>✓</div>
+            <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 8 }}>Dispositivo resetado</div>
+            <div style={{ fontSize: 13.5, color:"var(--muted)", lineHeight: 1.6, marginBottom: 20 }}>
+              {user.name} já pode vincular um novo dispositivo na próxima vez que abrir um resumo.
+            </div>
+            <button className="btn primary" onClick={onClose} style={{ width:"100%" }}>Fechar</button>
+          </>
+        ) : (
+          <>
+            <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 8 }}>Resetar dispositivo?</div>
+            <div style={{ fontSize: 13.5, color:"var(--muted)", lineHeight: 1.6, marginBottom: 20 }}>
+              Tem certeza que vai reiniciar o dispositivo de <strong>{user.name}</strong> ({user.email})? O dispositivo atualmente vinculado será desvinculado e o usuário poderá linkar um novo na próxima abertura de resumo.
+            </div>
+            {err && <div style={{ fontSize: 13, color:"var(--primary)", marginBottom: 14 }}>Erro: {err}</div>}
+            <div className="row" style={{ gap: 10, justifyContent:"flex-end" }}>
+              <button className="btn" onClick={onClose} disabled={busy}>Cancelar</button>
+              <button className="btn primary" onClick={confirmReset} disabled={busy} style={{ opacity: busy ? .7 : 1 }}>
+                {busy ? "Resetando…" : "Sim, resetar"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

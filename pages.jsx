@@ -1464,6 +1464,35 @@ function AccountSettings({ go, currentUser, refreshUser }){
         </form>
       </div>
 
+      {/* ── Dispositivo ── */}
+      <div style={S.section}>
+        <div style={S.stitle}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+          Dispositivo
+        </div>
+        {currentUser.device_fingerprint ? (
+          <div>
+            <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 10, lineHeight: 1.6 }}>
+              Por segurança, seus resumos só podem ser visualizados em um dispositivo vinculado por vez.
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: "var(--radius-md)", background: "var(--bg)", border: "1px solid var(--line)" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{currentUser.device_name || "Dispositivo desconhecido"}</div>
+                <div style={{ fontSize: 11, color: "var(--muted)" }}>Vinculado atualmente</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 12, lineHeight: 1.6 }}>
+              Precisa trocar de dispositivo? Abra uma solicitação em "Suporte" abaixo.
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
+            Nenhum dispositivo vinculado ainda. O primeiro dispositivo usado para abrir um resumo será vinculado automaticamente.
+          </div>
+        )}
+      </div>
+
       {/* ── Suporte ── */}
       <div style={S.section}>
         <div style={S.stitle}>
