@@ -48,7 +48,8 @@ Deno.serve(async (req) => {
   );
 
   const url              = new URL(req.url);
-  const queryId          = url.searchParams.get("id") || "";
+  // MP usa "data.id" como nome do parâmetro na URL das notificações (não "id").
+  const queryId          = url.searchParams.get("data.id") || url.searchParams.get("id") || "";
   const queryTopic       = url.searchParams.get("topic") || "";
   const externalRefQuery = url.searchParams.get("external_reference") || "";
 
@@ -117,7 +118,8 @@ Deno.serve(async (req) => {
   }
 
   const ts        = sigParts["ts"] || "";
-  const manifest  = `id:${dataId};request-id:${xRequestId};ts:${ts}`;
+  // Formato oficial do manifest (com ; final) — ver docs do Mercado Pago sobre x-signature.
+  const manifest  = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
   const encoder   = new TextEncoder();
   const cryptoKey = await crypto.subtle.importKey(
     "raw", encoder.encode(webhookSecret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
