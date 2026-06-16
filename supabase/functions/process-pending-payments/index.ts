@@ -26,19 +26,41 @@ Deno.serve(async (req) => {
     return new Response("Internal Server Error", { status: 500 });
   }
 
+  let reqBody: Record<string, unknown> = {};
+  try { reqBody = await req.json(); } catch { /* corpo vazio */ }
+
   const db = createClient(Deno.env.get("SUPABASE_URL")!, serviceRoleKey);
+
+  if (reqBody.process_ref) {
+    const ref = String(reqBody.process_ref);
+    const res = await fetch(
+      `${MP_API}/v1/payments/search?external_reference=${encodeURIComponent(ref)}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const body = await res.json();
+    const approved = (body.results as Array<Record<string, unknown>> | undefined)?.find(p => p.status === "approved");
+    if (!approved) {
+      return new Response(JSON.stringify({ ok: false, reason: "no_approved_payment_found" }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }
+    const ok = await processApproved(ref, approved, db);
+    return new Response(JSON.stringify({ ok }), { status: 200, headers: { "Content-Type": "application/json" } });
+  }
 
   // Só pega pagamentos criados há mais de 10 minutos para não conflitar
   // com o PaymentReturn polling (que roda por ~60s logo após o pagamento).
   const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
+  // Exclui ids do AbacatePay (pix_char_*, bill_*) — esses nunca terão match na busca do MP
+  // e ficavam ocupando o LIMIT, impedindo que pagamentos MP mais recentes fossem processados.
   const { data: stale, error: queryErr } = await db
     .from("pending_payments")
     .select("id, user_id, items")
     .eq("status", "pending")
     .lt("created_at", cutoff)
+    .not("id", "like", "pix_char_%")
+    .not("id", "like", "bill_%")
     .order("created_at", { ascending: true })
-    .limit(15);
+    .limit(50);
 
   if (queryErr) {
     log("error", "query_failed", { error: queryErr.message });
@@ -56,6 +78,7 @@ Deno.serve(async (req) => {
 
   let processed = 0;
   let skipped = 0;
+  const debug: Record<string, unknown>[] = [];
 
   for (const pending of stale) {
     const res = await fetch(
@@ -63,8 +86,15 @@ Deno.serve(async (req) => {
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     const body = await res.json();
-    const approved = (body.results as Array<Record<string, unknown>> | undefined)
-      ?.find(p => p.status === "approved");
+    const results = (body.results as Array<Record<string, unknown>> | undefined) ?? [];
+    debug.push({
+      external_ref: pending.id,
+      http_status: res.status,
+      results_count: results.length,
+      statuses: results.map(r => r.status),
+      mp_error: body.message ?? body.error ?? null,
+    });
+    const approved = results.find(p => p.status === "approved");
 
     if (!approved) {
       log("info", "no_approved_payment", { external_ref: pending.id });
@@ -78,7 +108,7 @@ Deno.serve(async (req) => {
   }
 
   log("info", "cron_done", { processed, skipped });
-  return new Response(JSON.stringify({ processed, skipped }), {
+  return new Response(JSON.stringify({ processed, skipped, debug }), {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });

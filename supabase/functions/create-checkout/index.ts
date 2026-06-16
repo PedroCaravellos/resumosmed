@@ -82,8 +82,8 @@ Deno.serve(async (req) => {
     const body: Record<string, unknown> = {
       frequency: "ONE_TIME",
       methods: ["PIX", "CARD"],
-      completionUrl: completionUrl || "https://resumosmed.com.br",
-      returnUrl: completionUrl || "https://resumosmed.com.br",
+      completionUrl: completionUrl || "https://resumosmed.com",
+      returnUrl: completionUrl || "https://resumosmed.com",
       items: abacateIds.map(id => ({ id, quantity: 1 })),
     };
 

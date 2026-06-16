@@ -105,8 +105,8 @@ Deno.serve(async (req) => {
     const amount = dbProducts.reduce((s, p) => s + (p.price as number), 0);
     const externalRef = crypto.randomUUID();
 
-    const ALLOWED_RETURN_HOSTS = ["resumosmed.com", "resumosmed.com.br"];
-    const fallbackUrl = "https://resumosmed.com.br?payment_return=1";
+    const ALLOWED_RETURN_HOSTS = ["resumosmed.com", "resumosmed.com.br", "www.resumosmed.com", "www.resumosmed.com.br"];
+    const fallbackUrl = "https://resumosmed.com?payment_return=1";
     const backUrl = (() => {
       try {
         const u = new URL(completionUrl || "");
