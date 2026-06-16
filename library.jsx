@@ -334,7 +334,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
       withCredentials: false,
     });
     task.promise.then(doc => {
-      if (cancelled){ doc.destroy?.(); return; }
+      if (cancelled){ doc.destroy?.()?.catch(()=>{}); return; }
       setPdfDoc(doc);
       setPdfTotal(doc.numPages);
       setPage(0);
@@ -345,7 +345,9 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
       setPdfError("Não foi possível carregar o PDF. Tente novamente.");
       setPdfLoading(false);
     });
-    return ()=>{ cancelled = true; try { task.destroy?.(); } catch {} };
+    // destroy() é assíncrono — um try/catch síncrono não captura sua rejeição
+    // (ex: "Worker was terminated"), o que gerava unhandled promise rejections no Sentry.
+    return ()=>{ cancelled = true; task.destroy?.()?.catch(()=>{}); };
   }, [activeSignedUrl, hasPdf]);
 
   // Render current page
