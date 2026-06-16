@@ -1,9 +1,11 @@
 // send-email — Edge Function universal para envio de emails via Resend.
 // Chamada internamente por outros webhooks e por triggers pg_net.
 // Autenticação: service role key no header Authorization.
+import { makeLogger, captureException } from "../_shared/sentry.ts";
 
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY");
 const FROM = "resumosmed <noreply@resumosmed.com>";
+const log = makeLogger("send-email");
 
 // ─── Layout base dos emails ───────────────────────────────────────────────────
 function baseTemplate(content: string, recipientEmail: string): string {
@@ -139,16 +141,18 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: { "Access-Control-Allow-Origin": "https://resumosmed.com", "Access-Control-Allow-Headers": "authorization,content-type" } });
   }
 
+  try {
+
   // Apenas chamadas internas autorizadas (service role key)
   const callerKey = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!serviceKey || callerKey !== serviceKey) {
-    console.error("[send-email] unauthorized call rejected");
+    log("warn", "unauthorized_call_rejected");
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
 
   if (!RESEND_KEY) {
-    console.error("[send-email] RESEND_API_KEY não configurada");
+    log("fatal", "missing_resend_api_key");
     return new Response(JSON.stringify({ error: "Email service not configured" }), { status: 500 });
   }
 
@@ -195,12 +199,19 @@ Deno.serve(async (req) => {
 
   const data = await res.json();
   if (!res.ok) {
-    console.error("[send-email] Resend error:", JSON.stringify(data));
+    // Falha de entrega real (não chega ao usuário) — merece visibilidade,
+    // já que é o único aviso de que a compra/cadastro/ticket foi confirmado.
+    log("error", "resend_send_failed", { to, subject, template: body.template, resend_status: res.status, resend_error: data });
     return new Response(JSON.stringify({ error: data }), { status: 500 });
   }
 
-  console.log("[send-email] Enviado para:", to, "id:", data.id);
+  log("info", "email_sent", { to, subject, template: body.template, resend_id: data.id });
   return new Response(JSON.stringify({ ok: true, id: data.id }), { status: 200 });
+
+  } catch (err) {
+    captureException("send-email", err);
+    return new Response(JSON.stringify({ error: "Erro interno" }), { status: 500 });
+  }
 });
 
 // Exporta helpers para uso em outros módulos (import via URL relativa)

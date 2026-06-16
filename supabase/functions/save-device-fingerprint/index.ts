@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { makeLogger, captureException } from "../_shared/sentry.ts";
 
 const ALLOWED_ORIGINS = ["https://resumosmed.com", "https://resumosmed.com.br", "https://www.resumosmed.com", "https://www.resumosmed.com.br"];
 function corsHeaders(origin: string) {
@@ -11,9 +12,7 @@ function corsHeaders(origin: string) {
   };
 }
 
-function log(level: "info" | "warn" | "error", event: string, data: Record<string, unknown> = {}) {
-  console.log(JSON.stringify({ level, ts: new Date().toISOString(), service: "save-device-fingerprint", event, ...data }));
-}
+const log = makeLogger("save-device-fingerprint");
 
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin") ?? "";
@@ -29,6 +28,8 @@ Deno.serve(async (req) => {
   }
 
   const correlationId = req.headers.get("x-correlation-id") ?? crypto.randomUUID();
+
+  try {
 
   const db = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -68,4 +69,9 @@ Deno.serve(async (req) => {
 
   log("info", "fingerprint_saved", { correlation_id: correlationId, user_id: user.id });
   return json({ ok: true });
+
+  } catch (err) {
+    captureException("save-device-fingerprint", err, { correlation_id: correlationId });
+    return json({ error: "Erro interno" }, 500);
+  }
 });

@@ -168,8 +168,12 @@ function App(){
   };
 
   const refreshUser = async () => {
-    const u = await loadCurrentUser();
-    setCurrentUser(u);
+    try {
+      const u = await loadCurrentUser();
+      setCurrentUser(u);
+    } catch (err) {
+      if (window.Sentry) window.Sentry.captureException(err, { tags: { flow: "refresh-user" } });
+    }
   };
 
   const isReader = route.name === "reader";

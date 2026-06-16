@@ -37,3 +37,6 @@ uploads/
 supabase/.temp/
 
 .vercel
+
+# Playwright MCP (snapshots/screenshots de sessão)
+.playwright-mcp/

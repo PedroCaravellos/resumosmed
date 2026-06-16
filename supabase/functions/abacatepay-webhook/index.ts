@@ -1,4 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { makeLogger, captureException } from "../_shared/sentry.ts";
+
+const log = makeLogger("abacatepay-webhook");
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
@@ -7,7 +10,7 @@ Deno.serve(async (req) => {
 
   const webhookSecret = Deno.env.get("ABACATEPAY_WEBHOOK_SECRET");
   if (!webhookSecret) {
-    console.error("[webhook] ABACATEPAY_WEBHOOK_SECRET não configurada");
+    log("fatal", "missing_webhook_secret");
     return new Response("Internal Server Error", { status: 500 });
   }
 
@@ -86,7 +89,7 @@ Deno.serve(async (req) => {
 
     const { error: purchaseErr } = await db.from("purchases").insert(rows);
     if (purchaseErr) {
-      console.error("[webhook] Falha ao inserir purchases:", purchaseErr.message);
+      log("error", "purchase_insert_failed", { charge_id: chargeId, db_error: purchaseErr.message });
       return;
     }
 
@@ -120,7 +123,7 @@ Deno.serve(async (req) => {
   })();
 
   // Não aguarda o processamento — responde 200 na hora
-  processing.catch(err => console.error("[webhook] Erro no processamento:", err));
+  processing.catch(err => captureException("abacatepay-webhook", err, { event: payload.event, charge_id: payload.data?.id }));
 
   return new Response("OK", { status: 200 });
 });

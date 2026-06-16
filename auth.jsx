@@ -79,35 +79,53 @@ async function loadProfileFor(authUser){
   return { ...base, purchases };
 }
 
+// Falhas de validação (senha errada, email duplicado, etc) voltam como
+// {error} normalmente — isso não é reportado, é fluxo esperado. Já uma
+// exceção real (rede caiu, client mal configurado) é bug de infra e
+// merece ir pro Sentry em vez de só estourar em silêncio.
+function reportAuthException(flow, err){
+  console.error(`[auth/${flow}]`, err);
+  if (window.Sentry) window.Sentry.captureException(err, { tags: { flow: `auth-${flow}` } });
+  return { error: "Erro de conexão. Tente novamente." };
+}
+
 async function signIn(email, password, requireRole){
-  const { data, error } = await sb.auth.signInWithPassword({ email: email.trim(), password });
-  if (error) return { error: traduzirErro(error.message) };
-  const user = await loadProfileFor(data.user);
-  if (user?._banned){
-    return { error: "Sua conta foi suspensa." + (user.banned_reason ? ` Motivo: ${user.banned_reason}` : " Entre em contato com o suporte.") };
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email: email.trim(), password });
+    if (error) return { error: traduzirErro(error.message) };
+    const user = await loadProfileFor(data.user);
+    if (user?._banned){
+      return { error: "Sua conta foi suspensa." + (user.banned_reason ? ` Motivo: ${user.banned_reason}` : " Entre em contato com o suporte.") };
+    }
+    if (requireRole && user.role !== requireRole){
+      await sb.auth.signOut();
+      return { error: requireRole === "admin" ? "Essa conta não é de admin." : "Use a entrada de usuário." };
+    }
+    return { user };
+  } catch (err) {
+    return reportAuthException("signin", err);
   }
-  if (requireRole && user.role !== requireRole){
-    await sb.auth.signOut();
-    return { error: requireRole === "admin" ? "Essa conta não é de admin." : "Use a entrada de usuário." };
-  }
-  return { user };
 }
 
 async function signUp({ name, email, password }){
-  const { data, error } = await sb.auth.signUp({
-    email: email.trim(),
-    password,
-    options: { data: { name: name.trim().slice(0, 200) } }
-  });
-  if (error) return { error: traduzirErro(error.message) };
-  if (!data.session){
-    return { needsConfirmation: true };
+  try {
+    const { data, error } = await sb.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { data: { name: name.trim().slice(0, 200) } }
+    });
+    if (error) return { error: traduzirErro(error.message) };
+    if (!data.session){
+      return { needsConfirmation: true };
+    }
+    const user = await loadProfileFor(data.user);
+    if (user?._banned){
+      return { error: "Sua conta foi suspensa." + (user.banned_reason ? ` Motivo: ${user.banned_reason}` : " Entre em contato com o suporte.") };
+    }
+    return { user };
+  } catch (err) {
+    return reportAuthException("signup", err);
   }
-  const user = await loadProfileFor(data.user);
-  if (user?._banned){
-    return { error: "Sua conta foi suspensa." + (user.banned_reason ? ` Motivo: ${user.banned_reason}` : " Entre em contato com o suporte.") };
-  }
-  return { user };
 }
 
 async function signOut(){
@@ -116,18 +134,26 @@ async function signOut(){
 
 async function resetPassword(email){
   if (!email?.trim()) return { error: "Informe seu email." };
-  const origin = window.location.hostname === "localhost" ? "https://resumosmed.com" : window.location.origin;
-  const redirectTo = origin + "/?reset=1";
-  const { error } = await sb.auth.resetPasswordForEmail(email.trim(), { redirectTo });
-  if (error) return { error: traduzirErro(error.message) };
-  return { ok: true };
+  try {
+    const origin = window.location.hostname === "localhost" ? "https://resumosmed.com" : window.location.origin;
+    const redirectTo = origin + "/?reset=1";
+    const { error } = await sb.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+    if (error) return { error: traduzirErro(error.message) };
+    return { ok: true };
+  } catch (err) {
+    return reportAuthException("reset-password", err);
+  }
 }
 
 async function updatePassword(newPassword){
   if (!newPassword || newPassword.length < 8) return { error: "A senha precisa de ao menos 8 caracteres." };
-  const { error } = await sb.auth.updateUser({ password: newPassword });
-  if (error) return { error: traduzirErro(error.message) };
-  return { ok: true };
+  try {
+    const { error } = await sb.auth.updateUser({ password: newPassword });
+    if (error) return { error: traduzirErro(error.message) };
+    return { ok: true };
+  } catch (err) {
+    return reportAuthException("update-password", err);
+  }
 }
 
 function traduzirErro(msg){

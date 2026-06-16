@@ -18,6 +18,16 @@ async function safe(label, fn, fallback){
     return await queryWithTimeout(fn(), label);
   } catch (err) {
     console.warn(`[data] ${label}:`, err?.message || err);
+    // Antes disso, toda falha de query (RLS, timeout, rede) virava só um
+    // console.warn no navegador de quem estava usando — invisível pra nós.
+    // Agrupa por label (fingerprint) pra não virar um balde único no Sentry.
+    if (window.Sentry) {
+      window.Sentry.captureException(err instanceof Error ? err : new Error(String(err?.message || err)), {
+        level: "warning",
+        tags: { data_label: label },
+        fingerprint: ["data-safe", label],
+      });
+    }
     return fallback;
   }
 }
@@ -309,6 +319,7 @@ async function saveDeviceFingerprint(userId, fingerprint, deviceName){
     if (!res.ok || body.error) return { error: body.error || "Falha ao salvar" };
     return { ok: true };
   } catch (e) {
+    if (window.Sentry) window.Sentry.captureException(e, { tags: { flow: "save-device-fingerprint" } });
     return { error: String(e) };
   }
 }

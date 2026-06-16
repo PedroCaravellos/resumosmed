@@ -1,6 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { makeLogger, captureException } from "../_shared/sentry.ts";
 
 const ABACATEPAY_API = "https://api.abacatepay.com/v2";
+const log = makeLogger("create-checkout");
 
 // Retorna o ID de produto do Abacate Pay (prod_xxx), criando se necessário.
 // externalId inclui preço para invalidar cache se o preço mudar.
@@ -124,13 +126,13 @@ Deno.serve(async (req) => {
       status:  "pending",
     });
     if (dbErr) {
-      console.error("[create-checkout] DB erro:", dbErr);
+      log("error", "pending_payment_insert_failed", { db_error: dbErr.message, charge_id: billing.id });
       return json({ error: "Erro ao registrar pagamento: " + dbErr.message });
     }
 
     return json({ checkoutUrl: billing.url, chargeId: billing.id });
   } catch (err) {
-    console.error("[create-checkout] Erro inesperado:", err);
+    captureException("create-checkout", err);
     return json({ error: String(err) });
   }
 });

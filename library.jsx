@@ -300,6 +300,13 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
       } else {
         setDeviceStatus("blocked");
       }
+    }).catch(err => {
+      // crypto.subtle pode rejeitar em contextos atípicos (ex: navegador sem
+      // suporte) — sem .catch() isso vira unhandled rejection, e sem fallback
+      // o leitor trava pra sempre em "verificando dispositivo".
+      console.error("[device-fingerprint]", err);
+      if (window.Sentry) window.Sentry.captureException(err, { tags: { flow: "device-fingerprint" } });
+      setDeviceStatus("blocked");
     });
   }, [currentUser?.id, currentUser?.device_fingerprint, effAdmin, termsChecking, showTerms]);
 
@@ -342,6 +349,7 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
     }).catch(err => {
       if (cancelled) return;
       console.error("[pdf]", err);
+      if (window.Sentry) window.Sentry.captureException(err, { tags: { flow: "pdf-load" }, extra: { product_id: r?.id } });
       setPdfError("Não foi possível carregar o PDF. Tente novamente.");
       setPdfLoading(false);
     });
@@ -417,7 +425,10 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
         // Reset scroll ao trocar de página
         if (frame && !cancelled) frame.scrollTop = 0;
       } catch (err) {
-        if (err?.name !== "RenderingCancelledException") console.error("[pdf render]", err);
+        if (err?.name !== "RenderingCancelledException") {
+          console.error("[pdf render]", err);
+          if (window.Sentry) window.Sentry.captureException(err, { tags: { flow: "pdf-render" }, extra: { product_id: r?.id, page } });
+        }
       }
     })();
     return ()=>{ cancelled = true; };

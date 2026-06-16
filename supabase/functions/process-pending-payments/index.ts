@@ -1,17 +1,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { makeLogger, captureException } from "../_shared/sentry.ts";
 
 const MP_API = "https://api.mercadopago.com";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
-function log(level: "info" | "warn" | "error", event: string, data: Record<string, unknown> = {}) {
-  console.log(JSON.stringify({ level, ts: new Date().toISOString(), service: "process-pending-payments", event, ...data }));
-}
+const log = makeLogger("process-pending-payments");
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
+  try {
 
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
@@ -114,6 +114,10 @@ Deno.serve(async (req) => {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
+  } catch (err) {
+    captureException("process-pending-payments", err);
+    return new Response("Internal Server Error", { status: 500 });
+  }
 });
 
 async function processApproved(

@@ -290,9 +290,11 @@
   <div id="root"></div>
 
   <!-- ── Monitoramento de erros (Sentry) ───────────────────────────────── -->
-  <!-- Loader script específico do projeto resumosmed — auto-inicializa     -->
+  <!-- SDK completo (em vez do loader script simples) — habilita performance
+       tracing + session replay, que o loader não permite configurar. -->
   <script
-    src="https://js.sentry-cdn.com/ca456f7fd2822ac6fb4aa8a4b40ec545.min.js"
+    src="https://browser.sentry-cdn.com/10.58.0/bundle.tracing.replay.min.js"
+    integrity="sha384-iqnhTwpeUVXMwfVZr9QsA2xRY5FMxAG4SSYiR+cgfNYvg2R2Tc7WL8Y7LmjhX8zQ"
     crossorigin="anonymous"
   ></script>
   <script>
@@ -300,10 +302,28 @@
       // Gera session ID único para rastreabilidade ponta-a-ponta
       window.__SESSION_ID = (Date.now().toString(36) + Math.random().toString(36).slice(2)).slice(0, 12);
 
-      // Captura erros JS não tratados
+      if (window.Sentry) {
+        Sentry.init({
+          dsn: "https://ca456f7fd2822ac6fb4aa8a4b40ec545@o4511502906425344.ingest.us.sentry.io/4511502909636608",
+          environment: "production",
+          integrations: [
+            Sentry.browserTracingIntegration(),
+            // Mascara texto/mídia por padrão — dados de pagamento e PDF não vazam no replay.
+            Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }),
+          ],
+          tracesSampleRate: 0.2,
+          // Baixa amostragem geral + 100% quando dá erro: contexto de replay
+          // pros bugs raros (ex: "Worker was terminated" em iOS) sem custo alto.
+          replaysSessionSampleRate: 0.05,
+          replaysOnErrorSampleRate: 1.0,
+        });
+      }
+
+      // window.onerror / unhandledrejection já são capturados automaticamente
+      // pelo SDK (globalHandlersIntegration) — aqui só mantemos o log
+      // estruturado local pra debugging via console/logs do navegador.
       window.onerror = function(msg, src, line, col, err) {
         var data = { msg: String(msg), src: src, line: line, session_id: window.__SESSION_ID };
-        if (window.Sentry) window.Sentry.captureException(err || new Error(String(msg)));
         console.error(JSON.stringify({ level: "error", service: "frontend", event: "js_error", ts: new Date().toISOString(), ...data }));
       };
 
@@ -311,7 +331,6 @@
         var reason = e.reason;
         var msg = reason instanceof Error ? reason.message : String(reason);
         var data = { event: "unhandled_rejection", msg: msg, session_id: window.__SESSION_ID };
-        if (window.Sentry) window.Sentry.captureException(reason instanceof Error ? reason : new Error(msg));
         console.error(JSON.stringify({ level: "error", service: "frontend", ts: new Date().toISOString(), ...data }));
       });
     })();
@@ -332,12 +351,12 @@
 
   <script type="text/babel" src="tweaks-panel.jsx?v=4"></script>
   <script type="text/babel" src="shared.jsx?v=6"></script>
-  <script type="text/babel" src="data.jsx?v=7"></script>
-  <script type="text/babel" src="auth.jsx?v=4"></script>
+  <script type="text/babel" src="data.jsx?v=8"></script>
+  <script type="text/babel" src="auth.jsx?v=5"></script>
   <script type="text/babel" src="pages.jsx?v=14"></script>
-  <script type="text/babel" src="library.jsx?v=8"></script>
+  <script type="text/babel" src="library.jsx?v=9"></script>
   <script type="text/babel" src="admin.jsx?v=5"></script>
-  <script type="text/babel" src="app.jsx?v=5"></script>
+  <script type="text/babel" src="app.jsx?v=6"></script>
 
   <script>
   (function(){

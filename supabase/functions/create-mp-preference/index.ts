@@ -1,10 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { makeLogger } from "../_shared/sentry.ts";
 
 const MP_API = "https://api.mercadopago.com";
 
-function log(level: "info" | "warn" | "error" | "fatal", event: string, data: Record<string, unknown> = {}) {
-  console.log(JSON.stringify({ level, ts: new Date().toISOString(), service: "create-mp-preference", event, ...data }));
-}
+const log = makeLogger("create-mp-preference");
 
 const ALLOWED_ORIGINS = ["https://resumosmed.com", "https://resumosmed.com.br", "https://www.resumosmed.com", "https://www.resumosmed.com.br"];
 

@@ -1,13 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { makeLogger, captureException } from "../_shared/sentry.ts";
 
 const MP_API = "https://api.mercadopago.com";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 type MPPayment = Record<string, unknown>;
 
-function log(level: "info" | "warn" | "error" | "fatal", event: string, data: Record<string, unknown> = {}) {
-  console.log(JSON.stringify({ level, ts: new Date().toISOString(), service: "mercadopago-webhook", event, ...data }));
-}
+const log = makeLogger("mercadopago-webhook");
 
 const ALLOWED_ORIGINS = ["https://resumosmed.com", "https://resumosmed.com.br", "https://www.resumosmed.com", "https://www.resumosmed.com.br"];
 function corsHeaders(origin: string) {
@@ -21,6 +20,7 @@ function corsHeaders(origin: string) {
 }
 
 Deno.serve(async (req) => {
+  try {
   const origin = req.headers.get("origin") ?? "";
   const CORS = corsHeaders(origin);
   if (req.method === "OPTIONS") {
@@ -148,6 +148,10 @@ Deno.serve(async (req) => {
 
   processing.catch(err => log("error", "processing_exception", { correlation_id: correlationId, error: err?.message ?? String(err) }));
   return new Response("OK", { status: 200 });
+  } catch (err) {
+    captureException("mercadopago-webhook", err);
+    return new Response("Internal Server Error", { status: 500 });
+  }
 });
 
 // Busca pagamento aprovado pelo external_reference e processa se necessário.

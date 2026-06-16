@@ -1,6 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { makeLogger, captureException } from "../_shared/sentry.ts";
 
 const ABACATEPAY_API = "https://api.abacatepay.com/v2";
+const log = makeLogger("create-pix-charge");
 
 function validarCpf(d: string): boolean {
   if (/^(\d)\1{10}$/.test(d)) return false;
@@ -84,7 +86,7 @@ Deno.serve(async (req) => {
     console.log("[create-pix-charge] Resposta Abacate Pay:", JSON.stringify(abacateBody));
 
     if (!abacateRes.ok) {
-      console.error("[create-pix-charge] Abacate Pay erro:", abacateBody);
+      log("error", "abacatepay_charge_failed", { abacate_status: abacateRes.status, abacate_error: abacateBody });
       return json({ error: "Falha ao gerar cobrança PIX: " + JSON.stringify(abacateBody) });
     }
 
@@ -100,7 +102,7 @@ Deno.serve(async (req) => {
       expires_at: charge.expiresAt,
     });
     if (dbErr) {
-      console.error("[create-pix-charge] DB erro:", dbErr);
+      log("error", "pending_payment_insert_failed", { db_error: dbErr.message, charge_id: charge.id });
       return json({ error: "Erro ao registrar pagamento: " + dbErr.message });
     }
 
@@ -111,7 +113,7 @@ Deno.serve(async (req) => {
       expiresAt:    charge.expiresAt,
     });
   } catch (err) {
-    console.error("[create-pix-charge] Erro inesperado:", err);
+    captureException("create-pix-charge", err);
     return json({ error: String(err) }, 500);
   }
 });
