@@ -46,9 +46,11 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok }), { status: 200, headers: { "Content-Type": "application/json" } });
   }
 
-  // Só pega pagamentos criados há mais de 10 minutos para não conflitar
-  // com o PaymentReturn polling (que roda por ~60s logo após o pagamento).
-  const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  // Só pega pagamentos criados há mais de 90s para não conflitar com o
+  // PaymentReturn polling (que roda por ~60s logo após o pagamento).
+  // Cron roda a cada 1 min — isso é a rede de segurança caso a IPN do MP
+  // não chegue (ou demore) e o usuário não volte ao site.
+  const cutoff = new Date(Date.now() - 90 * 1000).toISOString();
 
   // Exclui ids do AbacatePay (pix_char_*, bill_*) — esses nunca terão match na busca do MP
   // e ficavam ocupando o LIMIT, impedindo que pagamentos MP mais recentes fossem processados.
