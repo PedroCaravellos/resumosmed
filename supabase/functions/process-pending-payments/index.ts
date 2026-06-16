@@ -1,0 +1,159 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const MP_API = "https://api.mercadopago.com";
+
+type SupabaseClient = ReturnType<typeof createClient>;
+
+function log(level: "info" | "warn" | "error", event: string, data: Record<string, unknown> = {}) {
+  console.log(JSON.stringify({ level, ts: new Date().toISOString(), service: "process-pending-payments", event, ...data }));
+}
+
+Deno.serve(async (req) => {
+  if (req.method !== "POST") {
+    return new Response("Method Not Allowed", { status: 405 });
+  }
+
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  if (token !== serviceRoleKey) {
+    log("warn", "unauthorized");
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const accessToken = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
+  if (!accessToken) {
+    log("error", "missing_access_token");
+    return new Response("Internal Server Error", { status: 500 });
+  }
+
+  const db = createClient(Deno.env.get("SUPABASE_URL")!, serviceRoleKey);
+
+  // Só pega pagamentos criados há mais de 10 minutos para não conflitar
+  // com o PaymentReturn polling (que roda por ~60s logo após o pagamento).
+  const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
+  const { data: stale, error: queryErr } = await db
+    .from("pending_payments")
+    .select("id, user_id, items")
+    .eq("status", "pending")
+    .lt("created_at", cutoff)
+    .order("created_at", { ascending: true })
+    .limit(15);
+
+  if (queryErr) {
+    log("error", "query_failed", { error: queryErr.message });
+    return new Response("Internal Server Error", { status: 500 });
+  }
+
+  log("info", "cron_run", { stale_count: stale?.length ?? 0, cutoff });
+
+  if (!stale?.length) {
+    return new Response(JSON.stringify({ processed: 0, skipped: 0 }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  let processed = 0;
+  let skipped = 0;
+
+  for (const pending of stale) {
+    const res = await fetch(
+      `${MP_API}/v1/payments/search?external_reference=${encodeURIComponent(pending.id)}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const body = await res.json();
+    const approved = (body.results as Array<Record<string, unknown>> | undefined)
+      ?.find(p => p.status === "approved");
+
+    if (!approved) {
+      log("info", "no_approved_payment", { external_ref: pending.id });
+      skipped++;
+      continue;
+    }
+
+    const ok = await processApproved(pending.id, approved, db, serviceRoleKey);
+    if (ok) processed++;
+    else skipped++;
+  }
+
+  log("info", "cron_done", { processed, skipped });
+  return new Response(JSON.stringify({ processed, skipped }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+});
+
+async function processApproved(
+  externalRef: string,
+  payment: Record<string, unknown>,
+  db: SupabaseClient,
+  serviceRoleKey: string,
+): Promise<boolean> {
+  // Atômico: só processa se ainda "pending" — evita race entre cron, IPN e force-check
+  const { data: updated, error: updateErr } = await db
+    .from("pending_payments")
+    .update({ status: "completed" })
+    .eq("id", externalRef)
+    .eq("status", "pending")
+    .select("*")
+    .maybeSingle();
+
+  if (updateErr || !updated) {
+    log("info", "already_processed_or_not_found", { external_ref: externalRef });
+    return false;
+  }
+
+  const method = payment.payment_type_id === "credit_card" ? "Cartão" : "Pix";
+  const items = updated.items as Array<{ id: string; title: string; price: number }>;
+
+  const { data: dbProducts } = await db
+    .from("products")
+    .select("id, title, price")
+    .in("id", items.map(i => i.id));
+
+  const dbMap = new Map((dbProducts || []).map(p => [p.id as string, p]));
+  const rows = items.map(item => {
+    const prod = dbMap.get(item.id);
+    return {
+      user_id: updated.user_id,
+      product_id: item.id,
+      product_title: prod?.title ?? item.title,
+      price: prod?.price ?? item.price,
+      method,
+    };
+  });
+
+  const { error: purchaseErr } = await db.from("purchases").insert(rows);
+  if (purchaseErr) {
+    log("error", "purchase_insert_failed", { external_ref: externalRef, error: purchaseErr.message });
+    await db.from("pending_payments").update({ status: "pending" }).eq("id", externalRef);
+    return false;
+  }
+
+  log("info", "payment_recovered", { external_ref: externalRef, user_id: updated.user_id, items_count: rows.length });
+
+  try {
+    const { data: { user } } = await db.auth.admin.getUserById(updated.user_id);
+    if (user?.email) {
+      const name = user.user_metadata?.name || user.email.split("@")[0];
+      const itemList = items.map(i => `<li>${dbMap.get(i.id)?.title ?? i.title}</li>`).join("");
+      await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${serviceRoleKey}`,
+        },
+        body: JSON.stringify({
+          to: user.email,
+          subject: "Seus resumos estão liberados!",
+          html: `<p>Olá, ${name}!</p><p>Seu pagamento foi confirmado e seus resumos já estão disponíveis na sua biblioteca:</p><ul>${itemList}</ul><p><a href="https://resumosmed.com">Acessar biblioteca →</a></p>`,
+        }),
+      });
+    }
+  } catch (e) {
+    log("warn", "email_failed", { external_ref: externalRef, error: (e as Error)?.message });
+  }
+
+  return true;
+}

@@ -1196,7 +1196,7 @@ function PaymentReturn({ go, clearCart, refreshUser, currentUser, cart }){
         <>
           <div style={{fontSize: 48, marginBottom: 16}}>⏳</div>
           <div className="display" style={{fontSize: 24, fontWeight: 700}}>Verificando pagamento…</div>
-          <p style={{color:"var(--muted)", marginTop: 8}}>Aguarde enquanto confirmamos sua compra. Isso pode levar alguns segundos.</p>
+          <p style={{color:"var(--muted)", marginTop: 8}}>Aguarde enquanto confirmamos sua compra. Normalmente leva alguns segundos.</p>
         </>
       )}
       {status === "success" && (
@@ -1208,13 +1208,17 @@ function PaymentReturn({ go, clearCart, refreshUser, currentUser, cart }){
       )}
       {status === "error" && (
         <>
-          <div style={{fontSize: 48, marginBottom: 16}}>⚠️</div>
-          <div className="display" style={{fontSize: 24, fontWeight: 700}}>Não conseguimos confirmar ainda</div>
-          <p style={{color:"var(--muted)", marginTop: 8, marginBottom: 24}}>O pagamento pode estar sendo processado. Verifique sua biblioteca em alguns minutos ou tente verificar novamente.</p>
+          <div style={{fontSize: 48, marginBottom: 16}}>⏳</div>
+          <div className="display" style={{fontSize: 24, fontWeight: 700}}>Pagamento em processamento</div>
+          <p style={{color:"var(--muted)", marginTop: 8}}>Seu resumo chegará automaticamente na sua biblioteca em até <strong>15 minutos</strong>.</p>
+          <p style={{color:"var(--muted)", marginTop: 4, marginBottom: 24}}>Se após 15 minutos não aparecer na biblioteca, entre em contato com o suporte.</p>
           <div style={{display:"flex", gap: 12, justifyContent:"center", flexWrap:"wrap"}}>
             <button className="btn primary" onClick={()=>go({name:"library"})}>Ir para minha biblioteca</button>
             <button className="btn secondary" onClick={startPolling}>Verificar novamente</button>
-            <button className="btn secondary" onClick={()=>go({name:"cart"})}>Voltar ao carrinho</button>
+            <button className="btn secondary" onClick={()=>{
+              sessionStorage.setItem("ticket_prefill", JSON.stringify({subject:"pagamento", message:"Fiz um pagamento mas o resumo não chegou na minha biblioteca após 15 minutos."}));
+              go({name:"profile"});
+            }}>Contatar suporte</button>
           </div>
         </>
       )}
