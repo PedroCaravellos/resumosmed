@@ -102,6 +102,32 @@ Deno.serve(async (req) => {
       return json({ error: "Um ou mais produtos não encontrados." }, 400);
     }
 
+    // Bloqueia recompra enquanto um pagamento dos mesmos itens ainda está em
+    // processamento — evita cobrança duplicada caso o usuário volte antes da
+    // confirmação (webhook/cron) cair. Janela curta (10min, bem acima do
+    // pior caso atual de ~3min) pra não travar quem só abandonou o checkout.
+    const PENDING_GUARD_MINUTES = 10;
+    const pendingCutoff = new Date(Date.now() - PENDING_GUARD_MINUTES * 60 * 1000).toISOString();
+    const { data: openPending } = await db
+      .from("pending_payments")
+      .select("items")
+      .eq("user_id", user.id)
+      .eq("status", "pending")
+      .gt("created_at", pendingCutoff);
+
+    const pendingItemIds = new Set<string>();
+    for (const p of openPending || []) {
+      for (const it of (p.items as Array<{ id: string }>)) pendingItemIds.add(it.id);
+    }
+    const blockedIds = itemIds.filter(id => pendingItemIds.has(id));
+    if (blockedIds.length) {
+      log("warn", "duplicate_checkout_blocked", { correlation_id: correlationId, user_id: user.id, blocked_ids: blockedIds });
+      return json({
+        error: "Você já tem um pagamento em processamento para um ou mais itens deste carrinho. Aguarde a confirmação (geralmente leva poucos minutos) antes de tentar novamente.",
+        pending_item_ids: blockedIds,
+      }, 409);
+    }
+
     const amount = dbProducts.reduce((s, p) => s + (p.price as number), 0);
     const externalRef = crypto.randomUUID();
 

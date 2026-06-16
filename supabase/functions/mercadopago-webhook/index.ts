@@ -82,7 +82,12 @@ Deno.serve(async (req) => {
       log("warn", "force_check_forbidden", { correlation_id: correlationId, user_id: fcUser.id, external_ref: externalRefQuery });
       return new Response("Forbidden", { status: 403, headers: CORS });
     }
-    const status = await processExternalRef(externalRefQuery, accessToken, db);
+    // cancel=1: usuário desistiu e quer comprar de novo sem esperar a janela
+    // de 10min da guarda anti-duplicidade. Só cancela de fato se a MP confirmar
+    // que não há pagamento aprovado — se houver, processa a compra normalmente
+    // (protege contra o usuário "cancelar" depois de já ter pago).
+    const cancel = url.searchParams.get("cancel") === "1";
+    const status = await processExternalRef(externalRefQuery, accessToken, db, cancel);
     return new Response(JSON.stringify({ status }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...CORS },
@@ -145,8 +150,11 @@ Deno.serve(async (req) => {
   return new Response("OK", { status: 200 });
 });
 
-// Busca pagamento aprovado pelo external_reference e processa se necessário
-async function processExternalRef(externalRef: string, accessToken: string, db: SupabaseClient): Promise<string> {
+// Busca pagamento aprovado pelo external_reference e processa se necessário.
+// cancelIfNotApproved: se true e a MP não confirmar nenhum pagamento aprovado,
+// marca o pending_payment como "expired" — libera o usuário pra comprar de
+// novo sem esperar a janela da guarda anti-duplicidade (create-mp-preference).
+async function processExternalRef(externalRef: string, accessToken: string, db: SupabaseClient, cancelIfNotApproved = false): Promise<string> {
   // Se já completado no banco, verifica se compra foi de fato criada
   const { data: existing } = await db
     .from("pending_payments").select("status, user_id").eq("id", externalRef).maybeSingle();
@@ -157,6 +165,7 @@ async function processExternalRef(externalRef: string, accessToken: string, db: 
     // completed mas sem purchase → reprocessa
     await db.from("pending_payments").update({ status: "pending" }).eq("id", externalRef);
   }
+  if (existing?.status === "expired") return "expired";
 
   // Busca no MP por external_reference
   const searchRes  = await fetch(
@@ -168,7 +177,21 @@ async function processExternalRef(externalRef: string, accessToken: string, db: 
     ?.find(p => p.status === "approved");
 
   if (!approved) {
-    log("info", "no_approved_payment", { external_ref: externalRef });
+    log("info", "no_approved_payment", { external_ref: externalRef, cancel_requested: cancelIfNotApproved });
+    if (cancelIfNotApproved) {
+      // Atômico: só expira se ainda "pending" — evita conflito com IPN/cron concorrente
+      const { data: cancelled } = await db
+        .from("pending_payments")
+        .update({ status: "expired" })
+        .eq("id", externalRef)
+        .eq("status", "pending")
+        .select("id")
+        .maybeSingle();
+      if (cancelled) {
+        log("info", "pending_payment_cancelled", { external_ref: externalRef });
+        return "expired";
+      }
+    }
     return "pending";
   }
 

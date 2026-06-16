@@ -169,6 +169,42 @@ async function fetchUserPurchaseIds(userId){
   return [...new Set((res?.data || []).map(p=>p.product_id))];
 }
 
+async function fetchUserPendingPayments(userId){
+  if (!userId) return [];
+  // Mesma janela de 10min usada no backend (create-mp-preference) — depois
+  // disso o pagamento é considerado abandonado e libera nova compra.
+  const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const res = await safe("fetchUserPendingPayments", () => sb
+    .from("pending_payments")
+    .select("id, items")
+    .eq("user_id", userId)
+    .eq("status", "pending")
+    .gt("created_at", cutoff),
+    { data: [], error: null }
+  );
+  return res?.data || [];
+}
+
+// Cancela um pagamento pendente (usuário desistiu) — libera a compra do mesmo
+// item sem esperar a janela da guarda. Se a MP já tiver aprovado o pagamento,
+// a função processa a compra normalmente em vez de cancelar.
+async function cancelPendingPayment(chargeId){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session?.access_token) return { error: "Sessão expirada." };
+  try {
+    const res = await fetch(`${window.SUPABASE_URL}/functions/v1/mercadopago-webhook?external_reference=${encodeURIComponent(chargeId)}&cancel=1`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
+      body: "{}",
+    });
+    const body = await res.json().catch(()=>({}));
+    if (!res.ok) return { error: body?.error || "Não foi possível cancelar." };
+    return { status: body.status };
+  } catch {
+    return { error: "Erro ao conectar com o servidor." };
+  }
+}
+
 async function fetchUserPurchases(userId){
   if (!userId) return [];
   const res = await safe("fetchUserPurchases", () => sb
@@ -440,7 +476,7 @@ async function addTicketReply(ticketId, userId, message, isAdmin = false){
 
 Object.assign(window, {
   fetchProducts, fetchProductById, createProduct, updateProduct, deleteProduct,
-  fetchUserPurchaseIds, fetchUserPurchases, fetchAllSales, fetchUsersCount,
+  fetchUserPurchaseIds, fetchUserPendingPayments, cancelPendingPayment, fetchUserPurchases, fetchAllSales, fetchUsersCount,
   getSignedPdfUrl, fetchPendingPaymentStatus,
   normalizeProduct,
   logEvent, hasAcceptedTerms, acceptTerms, saveDeviceFingerprint,

@@ -588,18 +588,32 @@ function Catalog({ go, addToCart, cart, initialFilter, currentUser }){
   useEffectP(()=>{ if (initialFilter) setFilter(initialFilter); }, [initialFilter]);
 
   const [ownedIds, setOwnedIds] = useStateP(()=> currentUser?.purchases || []);
+  const [pendingPayments, setPendingPayments] = useStateP([]);
+
+  const reloadStatus = React.useCallback(()=>{
+    if (!currentUser?.id) return;
+    fetchUserPurchaseIds(currentUser.id).then(setOwnedIds).catch(()=>{});
+    fetchUserPendingPayments(currentUser.id).then(setPendingPayments).catch(()=>{});
+  }, [currentUser?.id]);
 
   useEffectP(()=>{
     setOwnedIds(currentUser?.purchases || []);
-    if (!currentUser?.id) return;
-    let mounted = true;
-    fetchUserPurchaseIds(currentUser.id)
-      .then(ids => { if (mounted) setOwnedIds(ids); })
-      .catch(()=>{});
-    return ()=>{ mounted = false; };
+    reloadStatus();
   }, [currentUser?.id]);
 
   const owned = useMemoP(()=> new Set(ownedIds), [ownedIds]);
+  const pendingChargeByItem = useMemoP(()=>{
+    const m = new Map();
+    for (const p of pendingPayments) for (const it of (p.items||[])) if (!m.has(it.id)) m.set(it.id, p.id);
+    return m;
+  }, [pendingPayments]);
+
+  const cancelPending = async (itemId) => {
+    const chargeId = pendingChargeByItem.get(itemId);
+    if (!chargeId) return;
+    await cancelPendingPayment(chargeId);
+    reloadStatus();
+  };
 
   const list = useMemoP(()=>{
     let r = products.slice();
@@ -679,7 +693,7 @@ function Catalog({ go, addToCart, cart, initialFilter, currentUser }){
         ) : (
           <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(260px, 1fr))", gap: 16}}>
             {list.map(r => (
-              <ResumoCard key={r.id} r={r} go={go} addToCart={addToCart} cart={cart} isOwned={owned.has(r.id)}/>
+              <ResumoCard key={r.id} r={r} go={go} addToCart={addToCart} cart={cart} isOwned={owned.has(r.id)} isPending={pendingChargeByItem.has(r.id)} onCancelPending={()=>cancelPending(r.id)}/>
             ))}
           </div>
         )}
@@ -688,10 +702,17 @@ function Catalog({ go, addToCart, cart, initialFilter, currentUser }){
   );
 }
 
-function ResumoCard({ r, go, addToCart, cart, isOwned }){
+function ResumoCard({ r, go, addToCart, cart, isOwned, isPending, onCancelPending }){
   const area = AREAS.find(a=>a.id===r.area) || { name: r.area };
   const I = ILLU_FOR_AREA[r.area] || Illu.Cross;
   const inCart = cart?.some(c=>c.id===r.id);
+  const [cancelling, setCancelling] = useStateP(false);
+  const cancel = async (e) => {
+    e.stopPropagation();
+    setCancelling(true);
+    await onCancelPending?.();
+    setCancelling(false);
+  };
   return (
     <div className="card" style={{padding:"var(--card-pad)", display:"flex", flexDirection:"column", gap: 14, cursor:"pointer", transition:"transform .15s ease"}}
          onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}
@@ -716,6 +737,15 @@ function ResumoCard({ r, go, addToCart, cart, isOwned }){
           <button disabled onClick={e=>e.stopPropagation()} className="btn" style={{padding:"8px 14px", fontSize: 13, opacity:.5, cursor:"default"}}>
             ✓ Já possuído
           </button>
+        ) : isPending ? (
+          <div className="row" style={{gap: 6}} onClick={e=>e.stopPropagation()}>
+            <button disabled title="Pagamento em processamento — deve confirmar em poucos minutos" className="btn" style={{padding:"8px 12px", fontSize: 13, opacity:.6, cursor:"default"}}>
+              ⏳ Processando…
+            </button>
+            <button onClick={cancel} disabled={cancelling} title="Cancelar e poder comprar de novo" className="btn" style={{padding:"8px 10px", fontSize: 12, opacity: cancelling ? .6 : 1}}>
+              {cancelling ? "…" : "Cancelar"}
+            </button>
+          </div>
         ) : (
           <button onClick={(e)=>{e.stopPropagation(); addToCart(r);}} className={"btn " + (inCart ? "" : "primary")} style={{padding:"8px 14px", fontSize: 13}}>
             {inCart ? "No carrinho ✓" : "+ Adicionar"}
@@ -735,6 +765,25 @@ function Product({ id, go, addToCart, cart, currentUser }){
   const [loading, setLoading] = useStateP(true);
   // Ownership: inicia com valor em cache (rápido) e confirma no servidor (robusto)
   const [isOwned, setIsOwned] = useStateP(()=> !!(currentUser?.purchases?.includes(id)));
+  const [pendingChargeId, setPendingChargeId] = useStateP(null);
+  const [cancelling, setCancelling] = useStateP(false);
+
+  const reloadOwnership = React.useCallback(()=>{
+    if (!currentUser?.id) return;
+    fetchUserPurchaseIds(currentUser.id).then(ids => setIsOwned(ids.includes(id))).catch(()=>{});
+    fetchUserPendingPayments(currentUser.id).then(payments => {
+      const match = payments.find(p => (p.items||[]).some(it => it.id === id));
+      setPendingChargeId(match?.id || null);
+    }).catch(()=>{});
+  }, [currentUser?.id, id]);
+
+  const cancelPending = async () => {
+    if (!pendingChargeId) return;
+    setCancelling(true);
+    await cancelPendingPayment(pendingChargeId);
+    reloadOwnership();
+    setCancelling(false);
+  };
 
   useEffectP(()=>{
     let mounted = true;
@@ -760,12 +809,7 @@ function Product({ id, go, addToCart, cart, currentUser }){
   useEffectP(()=>{
     // Aplica cache imediatamente enquanto o servidor responde
     setIsOwned(!!(currentUser?.purchases?.includes(id)));
-    if (!currentUser?.id) return;
-    let mounted = true;
-    fetchUserPurchaseIds(currentUser.id)
-      .then(ids => { if (mounted) setIsOwned(ids.includes(id)); })
-      .catch(()=>{});
-    return ()=>{ mounted = false; };
+    reloadOwnership();
   }, [currentUser?.id, id]);
 
   if (loading) return <div className="page" style={{padding: 80, display:"flex", justifyContent:"center"}}><Spinner/></div>;
@@ -831,6 +875,14 @@ function Product({ id, go, addToCart, cart, currentUser }){
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
                 <span style={{fontWeight: 600, fontSize: 15}}>Você já possui este resumo</span>
                 <button className="btn" onClick={()=>go({name:"library"})} style={{marginLeft:"auto", padding:"6px 14px", fontSize: 13}}>Abrir na biblioteca →</button>
+              </div>
+            ) : pendingChargeId ? (
+              <div style={{marginBottom: 24, padding:"14px 18px", borderRadius:"var(--radius-md)", background:"var(--acc-1)", display:"flex", alignItems:"center", gap: 10, flexWrap:"wrap"}}>
+                <span style={{fontSize: 18}}>⏳</span>
+                <span style={{fontWeight: 600, fontSize: 15}}>Pagamento em processamento — deve confirmar em poucos minutos</span>
+                <button onClick={cancelPending} disabled={cancelling} className="btn" style={{marginLeft:"auto", padding:"6px 14px", fontSize: 13}}>
+                  {cancelling ? "Cancelando…" : "Cancelar e comprar de novo"}
+                </button>
               </div>
             ) : (
               <div className="row gap-md" style={{flexWrap:"wrap", marginBottom: 24}}>
