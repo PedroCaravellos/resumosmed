@@ -1046,7 +1046,13 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
         body: { items: cart, cpf: rawCpf, name: currentUser.name, email: currentUser.email, completionUrl },
       });
       if (error || !data?.checkoutUrl){
-        const reason = data?.error || error?.message || "tente novamente";
+        // supabase-js não parseia o corpo em respostas non-2xx — o JSON de erro
+        // (ex: bloqueio de pagamento pendente) fica em error.context (Response).
+        let reason = data?.error;
+        if (!reason && error?.context?.json) {
+          try { reason = (await error.context.json())?.error; } catch { /* corpo não-JSON */ }
+        }
+        reason = reason || error?.message || "tente novamente";
         if (window.Sentry) window.Sentry.captureMessage("checkout_failed: " + reason, {
           level: "error",
           tags: { flow: "checkout" },
