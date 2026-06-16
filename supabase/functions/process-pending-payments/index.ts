@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    const ok = await processApproved(pending.id, approved, db, serviceRoleKey);
+    const ok = await processApproved(pending.id, approved, db);
     if (ok) processed++;
     else skipped++;
   }
@@ -88,12 +88,14 @@ async function processApproved(
   externalRef: string,
   payment: Record<string, unknown>,
   db: SupabaseClient,
-  serviceRoleKey: string,
 ): Promise<boolean> {
-  // Atômico: só processa se ainda "pending" — evita race entre cron, IPN e force-check
+  const method = payment.payment_type_id === "credit_card" ? "Cartão" : "Pix";
+
+  // Atômico: só processa se ainda "pending" — evita race entre cron, IPN e force-check.
+  // Grava method junto para o trigger de email ter essa informação disponível.
   const { data: updated, error: updateErr } = await db
     .from("pending_payments")
-    .update({ status: "completed" })
+    .update({ status: "completed", method })
     .eq("id", externalRef)
     .eq("status", "pending")
     .select("*")
@@ -104,7 +106,6 @@ async function processApproved(
     return false;
   }
 
-  const method = payment.payment_type_id === "credit_card" ? "Cartão" : "Pix";
   const items = updated.items as Array<{ id: string; title: string; price: number }>;
 
   const { data: dbProducts } = await db
@@ -133,27 +134,7 @@ async function processApproved(
 
   log("info", "payment_recovered", { external_ref: externalRef, user_id: updated.user_id, items_count: rows.length });
 
-  try {
-    const { data: { user } } = await db.auth.admin.getUserById(updated.user_id);
-    if (user?.email) {
-      const name = user.user_metadata?.name || user.email.split("@")[0];
-      const itemList = items.map(i => `<li>${dbMap.get(i.id)?.title ?? i.title}</li>`).join("");
-      await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${serviceRoleKey}`,
-        },
-        body: JSON.stringify({
-          to: user.email,
-          subject: "Seus resumos estão liberados!",
-          html: `<p>Olá, ${name}!</p><p>Seu pagamento foi confirmado e seus resumos já estão disponíveis na sua biblioteca:</p><ul>${itemList}</ul><p><a href="https://resumosmed.com">Acessar biblioteca →</a></p>`,
-        }),
-      });
-    }
-  } catch (e) {
-    log("warn", "email_failed", { external_ref: externalRef, error: (e as Error)?.message });
-  }
+  // Email disparado pelo trigger fn_email_purchase_confirmed no banco (pending_payments UPDATE).
 
   return true;
 }

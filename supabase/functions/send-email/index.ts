@@ -152,16 +152,39 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Email service not configured" }), { status: 500 });
   }
 
-  let body: { to: string; subject: string; html: string };
+  let body: {
+    to: string;
+    subject: string;
+    html?: string;
+    template?: string;
+    data?: Record<string, unknown>;
+  };
   try {
     body = await req.json();
   } catch {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400 });
   }
 
-  const { to, subject, html } = body;
-  if (!to || !subject || !html) {
-    return new Response(JSON.stringify({ error: "Missing to, subject or html" }), { status: 400 });
+  const { to, subject } = body;
+  if (!to || !subject) {
+    return new Response(JSON.stringify({ error: "Missing to or subject" }), { status: 400 });
+  }
+
+  // Resolve HTML: direto ou via template
+  let html = body.html ?? "";
+  if (!html && body.template && body.data) {
+    const d = body.data;
+    if (body.template === "purchase") {
+      const name    = String(d.name ?? "");
+      const email   = String(d.email ?? to);
+      const items   = (d.items as Array<{ title: string; price: number }>) ?? [];
+      const method  = String(d.method ?? "Mercado Pago");
+      html = htmlPurchase(name, email, items, method);
+    }
+  }
+
+  if (!html) {
+    return new Response(JSON.stringify({ error: "Missing html or valid template" }), { status: 400 });
   }
 
   const res = await fetch("https://api.resend.com/emails", {

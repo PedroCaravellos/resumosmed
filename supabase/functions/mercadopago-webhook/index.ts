@@ -194,10 +194,13 @@ async function processPaymentId(
   const externalRef = payment.external_reference as string;
   if (!externalRef) { log("warn", "missing_external_reference", { payment_id: paymentId }); return false; }
 
-  // Atômico: só processa se ainda "pending" — evita race condition entre IPN e force-check
+  const method = payment.payment_type_id === "credit_card" ? "Cartão" : "Pix";
+
+  // Atômico: só processa se ainda "pending" — evita race condition entre IPN e force-check.
+  // Grava method junto para o trigger de email ter essa informação disponível.
   const { data: updated, error: updateErr } = await db
     .from("pending_payments")
-    .update({ status: "completed" })
+    .update({ status: "completed", method })
     .eq("id", externalRef)
     .eq("status", "pending")
     .select("*")
@@ -212,8 +215,6 @@ async function processPaymentId(
     log("fatal", reason, { external_ref: externalRef, user_id: updated.user_id, ...meta });
     await db.from("pending_payments").update({ status: "pending" }).eq("id", externalRef);
   };
-
-  const method = payment.payment_type_id === "credit_card" ? "Cartão" : "Pix";
 
   // Busca produtos pelo ID sem filtrar por active — cliente pagou, deve receber
   // independente de o produto ter sido desativado depois da compra
@@ -254,27 +255,7 @@ async function processPaymentId(
 
   log("info", "payment_confirmed", { external_ref: externalRef, user_id: updated.user_id, method, items_count: rows.length });
 
-  // Email de confirmação — fire-and-forget
-  try {
-    const { data: { user } } = await db.auth.admin.getUserById(updated.user_id);
-    if (user?.email) {
-      const name  = user.user_metadata?.name || user.email.split("@")[0];
-      const items = updated.items as Array<{ title: string; price: number }>;
-      const { htmlPurchase } = await import("../send-email/index.ts");
-      await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-        },
-        body: JSON.stringify({
-          to: user.email,
-          subject: "Seus resumos estão liberados! 📚",
-          html: htmlPurchase(name, user.email, items, method),
-        }),
-      });
-    }
-  } catch (e) { log("warn", "email_send_failed", { external_ref: externalRef, error: (e as Error)?.message }); }
+  // Email disparado pelo trigger fn_email_purchase_confirmed no banco (pending_payments UPDATE).
 
   return true;
 }
