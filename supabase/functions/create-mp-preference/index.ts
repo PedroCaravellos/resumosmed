@@ -6,7 +6,7 @@ function log(level: "info" | "warn" | "error" | "fatal", event: string, data: Re
   console.log(JSON.stringify({ level, ts: new Date().toISOString(), service: "create-mp-preference", event, ...data }));
 }
 
-const ALLOWED_ORIGINS = ["https://resumosmed.com", "https://resumosmed.com.br"];
+const ALLOWED_ORIGINS = ["https://resumosmed.com", "https://resumosmed.com.br", "https://www.resumosmed.com", "https://www.resumosmed.com.br"];
 
 function validarCpf(d: string): boolean {
   if (/^(\d)\1{10}$/.test(d)) return false;

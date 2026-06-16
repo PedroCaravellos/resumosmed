@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const ALLOWED_ORIGINS = ["https://resumosmed.com", "https://resumosmed.com.br"];
+const ALLOWED_ORIGINS = ["https://resumosmed.com", "https://resumosmed.com.br", "https://www.resumosmed.com", "https://www.resumosmed.com.br"];
 function corsHeaders(origin: string) {
   const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
