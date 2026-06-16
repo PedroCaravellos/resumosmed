@@ -88,8 +88,23 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── MODO IPN / DASHBOARD WEBHOOK — verificação HMAC obrigatória ──
+  // ── MODO IPN (legado, sem HMAC) ──
+  // Notificações via notification_url na preferência não carregam x-signature.
+  // Segurança: verificamos o status diretamente na API do MP com o access_token.
   const xSignature = req.headers.get("x-signature") || "";
+  if (!xSignature) {
+    const isPaymentIpn = queryTopic === "payment" && !!dataId;
+    if (!isPaymentIpn) {
+      log("warn", "ipn_ignored", { correlation_id: correlationId, topic: queryTopic, data_id: dataId });
+      return new Response("OK", { status: 200 });
+    }
+    log("info", "ipn_received", { correlation_id: correlationId, data_id: dataId });
+    const processing = (async () => { await processPaymentId(dataId, accessToken, db); })();
+    processing.catch(err => log("error", "ipn_processing_exception", { correlation_id: correlationId, error: err?.message ?? String(err) }));
+    return new Response("OK", { status: 200 });
+  }
+
+  // ── MODO DASHBOARD WEBHOOK — verificação HMAC obrigatória ──
   const xRequestId = req.headers.get("x-request-id") || "";
   const sigParts   = Object.fromEntries(
     xSignature.split(",").map(p => p.split("=", 2) as [string, string])
@@ -98,7 +113,7 @@ Deno.serve(async (req) => {
 
   if (!receivedHash) {
     log("warn", "missing_signature", { correlation_id: correlationId, data_id: dataId });
-    return new Response("Forbidden", { status: 401, headers: CORS });
+    return new Response("Forbidden", { status: 401 });
   }
 
   const ts        = sigParts["ts"] || "";
@@ -112,7 +127,7 @@ Deno.serve(async (req) => {
     .map(b => b.toString(16).padStart(2, "0")).join("");
   if (receivedHash !== expectedHash) {
     log("error", "webhook_signature_invalid", { correlation_id: correlationId, data_id: dataId });
-    return new Response("Forbidden", { status: 401, headers: CORS });
+    return new Response("Forbidden", { status: 401 });
   }
 
   // Responde 200 ao MP imediatamente; processa em background
