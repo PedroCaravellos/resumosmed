@@ -293,8 +293,8 @@
   <!-- SDK completo (em vez do loader script simples) — habilita performance
        tracing + session replay, que o loader não permite configurar. -->
   <script
-    src="https://browser.sentry-cdn.com/10.58.0/bundle.tracing.replay.min.js"
-    integrity="sha384-iqnhTwpeUVXMwfVZr9QsA2xRY5FMxAG4SSYiR+cgfNYvg2R2Tc7WL8Y7LmjhX8zQ"
+    src="https://browser.sentry-cdn.com/10.58.0/bundle.min.js"
+    integrity="sha384-rtfUMq82bneIHVOpL/60roC5pIJ9kDO15w13yGEBKZSJp3aIbrOAhimB61EwPClB"
     crossorigin="anonymous"
   ></script>
   <script>
@@ -306,14 +306,9 @@
         Sentry.init({
           dsn: "https://ca456f7fd2822ac6fb4aa8a4b40ec545@o4511502906425344.ingest.us.sentry.io/4511502909636608",
           environment: "production",
-          integrations: [
-            Sentry.browserTracingIntegration(),
-            // Mascara texto/mídia por padrão — dados de pagamento e PDF não vazam no replay.
-            Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }),
-          ],
-          tracesSampleRate: 0.2,
-          replaysSessionSampleRate: 0.05,
-          replaysOnErrorSampleRate: 1.0,
+          tracesSampleRate: 0,
+          replaysSessionSampleRate: 0,
+          replaysOnErrorSampleRate: 0,
           beforeSend: function(event, hint) {
             var err = hint && hint.originalException;
             var msg = err && (err.message || String(err));
