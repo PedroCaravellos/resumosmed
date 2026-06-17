@@ -312,10 +312,17 @@
             Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }),
           ],
           tracesSampleRate: 0.2,
-          // Baixa amostragem geral + 100% quando dá erro: contexto de replay
-          // pros bugs raros (ex: "Worker was terminated" em iOS) sem custo alto.
           replaysSessionSampleRate: 0.05,
           replaysOnErrorSampleRate: 1.0,
+          beforeSend: function(event, hint) {
+            var err = hint && hint.originalException;
+            var msg = err && (err.message || String(err));
+            // "Worker was terminated" é um comportamento do PDF.js em iOS/Safari
+            // quando o sistema encerra o worker (mudança de aba, memória baixa).
+            // Não é acionável — filtrado para não poluir o Sentry.
+            if (msg && msg === "Worker was terminated") return null;
+            return event;
+          },
         });
       }
 

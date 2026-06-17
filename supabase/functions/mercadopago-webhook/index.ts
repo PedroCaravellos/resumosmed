@@ -113,7 +113,10 @@ Deno.serve(async (req) => {
   // ── MODO DASHBOARD WEBHOOK — verificação HMAC obrigatória ──
   const xRequestId = req.headers.get("x-request-id") || "";
   const sigParts   = Object.fromEntries(
-    xSignature.split(",").map(p => p.split("=", 2) as [string, string])
+    xSignature.split(",").map(p => {
+      const eqIdx = p.indexOf("=");
+      return eqIdx === -1 ? [p.trim(), ""] : [p.slice(0, eqIdx).trim(), p.slice(eqIdx + 1).trim()] as [string, string];
+    })
   );
   const receivedHash = sigParts["v1"] || "";
 
@@ -122,9 +125,12 @@ Deno.serve(async (req) => {
     return new Response("Forbidden", { status: 401 });
   }
 
-  const ts        = sigParts["ts"] || "";
-  // Formato oficial do manifest (com ; final) — ver docs do Mercado Pago sobre x-signature.
-  const manifest  = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+  const ts = sigParts["ts"] || "";
+  // Docs do MP: request-id só entra no manifest se o header x-request-id estiver presente.
+  // Se omitido, o manifest é apenas "id:...;ts:...;" — incluir "request-id:;" quebraria o HMAC.
+  const manifest = xRequestId
+    ? `id:${dataId};request-id:${xRequestId};ts:${ts};`
+    : `id:${dataId};ts:${ts};`;
   const encoder   = new TextEncoder();
   const cryptoKey = await crypto.subtle.importKey(
     "raw", encoder.encode(webhookSecret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
@@ -133,7 +139,15 @@ Deno.serve(async (req) => {
   const expectedHash = Array.from(new Uint8Array(sigBuf))
     .map(b => b.toString(16).padStart(2, "0")).join("");
   if (receivedHash !== expectedHash) {
-    log("error", "webhook_signature_invalid", { correlation_id: correlationId, data_id: dataId });
+    log("error", "webhook_signature_invalid", {
+      correlation_id: correlationId,
+      data_id: dataId,
+      ts,
+      x_request_id_present: !!xRequestId,
+      manifest,
+      expected_prefix: expectedHash.slice(0, 16),
+      received_prefix: receivedHash.slice(0, 16),
+    });
     return new Response("Forbidden", { status: 401 });
   }
 
