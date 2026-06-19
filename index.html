@@ -289,6 +289,24 @@
 <body>
   <div id="root"></div>
 
+  <!-- ── Console branding + filtro de ruído ───────────────────────────── -->
+  <script>
+  (function(){
+    var _warn = console.warn.bind(console);
+    console.warn = function() {
+      var msg = arguments[0];
+      if (typeof msg === 'string' && msg.indexOf('Babel transformer') !== -1) return;
+      _warn.apply(console, arguments);
+    };
+
+    console.log(
+      '%c ＋ resumed. %c\nresumos de medicina · resumosmed.com',
+      'background:#e63946;color:#fff;padding:5px 10px;border-radius:6px;font-weight:800;font-size:13px;letter-spacing:-0.03em;',
+      'color:#e63946;font-size:11px;'
+    );
+  })();
+  </script>
+
   <!-- ── Monitoramento de erros (Sentry) ───────────────────────────────── -->
   <!-- SDK completo (em vez do loader script simples) — habilita performance
        tracing + session replay, que o loader não permite configurar. -->
