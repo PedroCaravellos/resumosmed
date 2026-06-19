@@ -21,6 +21,7 @@ const AREAS = [
   { id: "epi",      name: "Epidemiologia",                        color: "var(--acc-3)" },
   { id: "ortoped",  name: "Ortopedia",                            color: "var(--acc-1)" },
   { id: "lideranca",name: "Comunicação e Liderança em Saúde",     color: "var(--acc-4)" },
+  { id: "farma",    name: "Farmacologia",                          color: "var(--acc-3)" },
 ];
 
 const RESUMOS = [
@@ -59,6 +60,9 @@ const RESUMOS = [
   { id: "climat",  area: "go",      title: "Climatério & Menopausa",      pages: 22, price: 29, updated: "Fev 26", topics: ["TRH","Osteoporose","Sintomas","Câncer"] },
 
   { id: "trauma",  area: "cirurgia",title: "Trauma & ATLS",               pages: 54, price: 59, updated: "Mai 26", topics: ["ABCDE","TCE","Tórax","FAST"] },
+
+  { id: "antib",   area: "farma",  title: "Antibióticos",                pages: 52, price: 49, updated: "Jun 26", topics: ["Beta-lactâmicos","Aminoglicosídeos","Resistência","Espectro"] },
+  { id: "analg",   area: "farma",  title: "Analgesia & Sedação",         pages: 36, price: 39, updated: "Jun 26", topics: ["Opióides","AINEs","Escada OMS","UTI"] },
 ];
 
 // ─────────── Illustrations (abstract medical shapes) ───────────
