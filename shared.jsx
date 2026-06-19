@@ -223,6 +223,7 @@ const ILLU_FOR_AREA = {
   epi:      Illu.Brain,
   ortoped:  Illu.Ortoped,
   lideranca:Illu.Lider,
+  farma:    Illu.Pill,
 };
 
 // ─────────── Logo ───────────
