@@ -825,9 +825,9 @@ function Catalog({ go, addToCart, cart, initialFilter, currentUser }){
             <button onClick={()=>scrollChips(-1)} style={{
               position:'absolute', left:-4, top:'50%', transform:'translateY(-50%)', zIndex:3,
               width:32, height:32, borderRadius:'50%', border:'1.5px solid var(--line)',
-              background:'var(--bg)', color:'var(--fg)', cursor:'pointer',
+              background:'var(--primary)', color:'#fff', cursor:'pointer',
               display:'flex', alignItems:'center', justifyContent:'center',
-              boxShadow:'0 2px 8px rgba(0,0,0,0.10)', fontSize:14, lineHeight:1
+              boxShadow:'0 2px 8px rgba(230,57,70,0.25)', fontSize:14, lineHeight:1
             }}>‹</button>
           )}
           {/* arrow right */}
