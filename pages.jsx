@@ -446,28 +446,156 @@ function Tag({ children }){
   );
 }
 
-// ─────────── Areas grid ───────────
+// ─────────── Wave product row ───────────
+const WAVE_AMP = 38;
+const waveY    = (i) => Math.cos(i * 0.8) * WAVE_AMP;
+
 function Areas({ go }){
+  const scrollRef = useRefP(null);
+  const waveRef   = useRefP(null);
+  const drag      = useRefP({ active: false, startX: 0, scrollLeft: 0, moved: false });
+
+  // Dispara a animação stagger quando a seção entra na viewport
+  useEffectP(() => {
+    const el = waveRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { el.classList.add('wv'); obs.disconnect(); } },
+      { threshold: 0.12 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const onMouseDown = (e) => {
+    drag.current = { active: true, startX: e.pageX, scrollLeft: scrollRef.current.scrollLeft, moved: false };
+    scrollRef.current.style.cursor = 'grabbing';
+  };
+  const onMouseMove = (e) => {
+    if (!drag.current.active) return;
+    const dx = e.pageX - drag.current.startX;
+    if (Math.abs(dx) > 4) drag.current.moved = true;
+    scrollRef.current.scrollLeft = drag.current.scrollLeft - dx;
+  };
+  const onStop = () => {
+    drag.current.active = false;
+    if (scrollRef.current) scrollRef.current.style.cursor = 'grab';
+  };
+
   return (
     <section className="page" style={{paddingBottom:"var(--gap-xl)"}}>
-      <div className="row between" style={{alignItems:"flex-end", marginBottom: "var(--gap-lg)", flexWrap:"wrap", gap: 16}}>
-        <SectionHead eyebrow="Áreas" title={["Tudo organizado por","matéria."]}/>
+      <style>{`
+        /* Estado inicial: invisível e deslocado */
+        .wc-wrap { opacity: 0; translate: 0 16px; scale: 0.96; }
+
+        /* Stagger real: 25ms por card, max 650ms — sem cap artificial */
+        .wv .wc-wrap {
+          animation: wcIn 0.5s cubic-bezier(0.16,1,0.3,1) both;
+          animation-delay: calc(var(--wi, 0) * 25ms);
+        }
+        @keyframes wcIn {
+          from { opacity: 0; translate: 0 16px; scale: 0.96; }
+          to   { opacity: 1; translate: 0 0;    scale: 1; }
+        }
+
+        /* Hover: puro CSS, sem re-render React */
+        .wc {
+          transition: transform 0.35s cubic-bezier(0.16,1,0.3,1),
+                      box-shadow 0.35s ease;
+        }
+        .wc:hover {
+          transform: scale(1.06) translateY(-12px);
+          box-shadow: 0 16px 36px rgba(0,0,0,0.13);
+        }
+        .wc:hover .wc-cta { opacity: 1; transform: translateY(0); }
+        /* CTA como chip clicável, não legenda */
+        .wc-cta {
+          opacity: 0; transform: translateY(4px);
+          transition: opacity .2s ease, transform .28s cubic-bezier(0.16,1,0.3,1);
+        }
+        .wscroll::-webkit-scrollbar { display: none; }
+        /* Fade lateral via mask (não position:absolute) — hover nunca é cortado */
+        .wscroll {
+          -webkit-mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
+          mask-image: linear-gradient(to right, transparent, black 28px, black calc(100% - 28px), transparent);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .wc-wrap { opacity:1; translate:none; scale:none; }
+          .wv .wc-wrap { animation: none; }
+          .wc { transition: none; }
+        }
+      `}</style>
+
+      <div className="row between" style={{alignItems:"flex-start", marginBottom:24, flexWrap:"wrap", gap:16}}>
+        <SectionHead eyebrow="Resumos" title={["Tudo organizado por","matéria."]}/>
         <button className="btn" onClick={()=>go({name:"catalog"})}>Ver catálogo completo →</button>
       </div>
-      <div data-reveal-stagger="scale" className="areas-grid" style={{display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap: 14}}>
-        {AREAS.map(a => {
-          const I = ILLU_FOR_AREA[a.id];
-          const count = RESUMOS.filter(r=>r.area===a.id).length;
-          return (
-            <button key={a.id} onClick={()=>go({name:"catalog", filter:a.id})} className="card" style={{padding: 18, display:"flex", flexDirection:"column", gap: 14, alignItems:"flex-start", cursor:"pointer", fontFamily:"inherit", textAlign:"left", color:"var(--fg)"}}>
-              <I size={42}/>
-              <div>
-                <div className="display" style={{fontSize: 15, fontWeight: 600, lineHeight: 1.2}}>{a.name}</div>
-                <div className="mono" style={{fontSize: 11, color:"var(--muted)", marginTop: 4}}>{count} resumos</div>
-              </div>
-            </button>
-          );
-        })}
+
+      <div ref={waveRef}>
+        {/* Fades laterais agora via mask-image no próprio scroll container (ver CSS acima) */}
+        <div
+          ref={scrollRef}
+          className="wscroll"
+          style={{overflowX:'auto', cursor:'grab', WebkitOverflowScrolling:'touch', scrollbarWidth:'none'}}
+          onMouseDown={onMouseDown}
+          onMouseMove={onMouseMove}
+          onMouseUp={onStop}
+          onMouseLeave={onStop}
+        >
+          {/* paddingTop/Bottom = amplitude + folga mínima para não cortar cards */}
+          <div style={{display:'flex', gap:10, alignItems:'flex-start', width:'max-content', paddingTop:46, paddingBottom:42, paddingLeft:8, paddingRight:8}}>
+            {RESUMOS.map((r, i) => {
+              const area  = AREAS.find(a => a.id === r.area);
+              const color = area?.color || 'var(--primary)';
+              return (
+                <div
+                  key={r.id}
+                  className="wc-wrap"
+                  style={{ transform:`translateY(${waveY(i)}px)`, flexShrink:0, '--wi': i }}
+                >
+                  <div
+                    className="wc"
+                    style={{ width:182, background:'var(--surface)', borderRadius:13, border:'1.5px solid var(--line)', boxShadow:'0 1px 6px rgba(0,0,0,0.06)', overflow:'hidden', display:'flex', flexDirection:'column', userSelect:'none', cursor:'pointer' }}
+                    onClick={() => { if (!drag.current.moved) go({ name:'product', id:r.id }); }}
+                  >
+                    {/* Cabeçalho: tint da cor da especialidade */}
+                    <div style={{ background:`${color}14`, padding:'12px 12px 10px', borderBottom:`1px solid ${color}22` }}>
+                      <span style={{ display:'block', fontSize:9, fontWeight:700, letterSpacing:'.09em', color, textTransform:'uppercase', fontFamily:'var(--font-mono)', marginBottom:6, opacity:.85 }}>
+                        {area?.name}
+                      </span>
+                      <div className="display" style={{ fontSize:13, fontWeight:700, lineHeight:1.28, color:'var(--fg)' }}>
+                        {r.title}
+                      </div>
+                    </div>
+
+                    {/* Corpo */}
+                    <div style={{ padding:'9px 12px 12px', display:'flex', flexDirection:'column', gap:7, flex:1 }}>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:3 }}>
+                        {r.topics.slice(0,2).map(t => (
+                          <span key={t} style={{ fontSize:9, background:'var(--bg)', border:'1px solid var(--line)', borderRadius:4, padding:'2px 5px', color:'var(--muted)', fontFamily:'var(--font-mono)' }}>
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div style={{ marginTop:'auto', paddingTop:8, borderTop:'1px solid var(--line)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                        <span style={{ fontSize:10, color:'var(--muted)', fontFamily:'var(--font-mono)' }}>{r.pages} pág</span>
+                        <span className="display" style={{ fontSize:16, fontWeight:700, color:'var(--primary)' }}>R$ {r.price}</span>
+                      </div>
+
+                      {/* CTA como pill — aparece no hover */}
+                      <div className="wc-cta">
+                        <div style={{ textAlign:'center', fontSize:11, fontWeight:600, color, background:`${color}18`, border:`1px solid ${color}40`, borderRadius:6, padding:'5px 8px', letterSpacing:'.01em' }}>
+                          Ver resumo →
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -576,6 +704,8 @@ function Catalog({ go, addToCart, cart, initialFilter, currentUser }){
   const [sort, setSort] = useStateP("popular");
   const [products, setProducts] = useStateP([]);
   const [loading, setLoading] = useStateP(true);
+  const chipRailRef = useRefP(null);
+  const [chipEdge, setChipEdge] = useStateP({ left: false, right: true });
 
   useEffectP(()=>{
     let mounted = true;
@@ -586,6 +716,18 @@ function Catalog({ go, addToCart, cart, initialFilter, currentUser }){
   }, []);
 
   useEffectP(()=>{ if (initialFilter) setFilter(initialFilter); }, [initialFilter]);
+
+  useEffectP(()=>{
+    const el = chipRailRef.current;
+    if (!el) return;
+    const check = () => setChipEdge({ left: el.scrollLeft > 8, right: el.scrollLeft < el.scrollWidth - el.clientWidth - 8 });
+    check();
+    el.addEventListener('scroll', check, { passive: true });
+    window.addEventListener('resize', check);
+    return () => { el.removeEventListener('scroll', check); window.removeEventListener('resize', check); };
+  }, []);
+
+  const scrollChips = (dir) => { const el = chipRailRef.current; if (el) el.scrollBy({ left: dir * 220, behavior: 'smooth' }); };
 
   const [ownedIds, setOwnedIds] = useStateP(()=> currentUser?.purchases || []);
   const [pendingPayments, setPendingPayments] = useStateP([]);
@@ -664,18 +806,54 @@ function Catalog({ go, addToCart, cart, initialFilter, currentUser }){
         </div>
 
         {/* Filter chips */}
-        <div className="tag-rail" style={{marginTop: 24}}>
-          <button className={"chip " + (filter==="all"?"active":"")} onClick={()=>setFilter("all")}>
-            Todos <span className="mono" style={{opacity:.5, fontSize: 11}}>{products.length}</span>
-          </button>
-          {AREAS.map(a => {
-            const c = products.filter(r=>r.area===a.id).length;
-            return (
-              <button key={a.id} className={"chip " + (filter===a.id?"active":"")} onClick={()=>setFilter(a.id)}>
-                {a.name} <span className="mono" style={{opacity:.5, fontSize: 11}}>{c}</span>
-              </button>
-            );
-          })}
+        <div style={{position:'relative', marginTop: 24}}>
+          {/* fade left */}
+          <div style={{
+            position:'absolute', left:0, top:0, bottom:0, width:48, zIndex:2, pointerEvents:'none',
+            background:'linear-gradient(to right, var(--bg), transparent)',
+            opacity: chipEdge.left ? 1 : 0, transition:'opacity .2s'
+          }}/>
+          {/* fade right */}
+          <div style={{
+            position:'absolute', right:0, top:0, bottom:0, width:48, zIndex:2, pointerEvents:'none',
+            background:'linear-gradient(to left, var(--bg), transparent)',
+            opacity: chipEdge.right ? 1 : 0, transition:'opacity .2s'
+          }}/>
+
+          {/* arrow left */}
+          {chipEdge.left && (
+            <button onClick={()=>scrollChips(-1)} style={{
+              position:'absolute', left:-4, top:'50%', transform:'translateY(-50%)', zIndex:3,
+              width:32, height:32, borderRadius:'50%', border:'1.5px solid var(--line)',
+              background:'var(--bg)', color:'var(--fg)', cursor:'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              boxShadow:'0 2px 8px rgba(0,0,0,0.10)', fontSize:14, lineHeight:1
+            }}>‹</button>
+          )}
+          {/* arrow right */}
+          {chipEdge.right && (
+            <button onClick={()=>scrollChips(1)} style={{
+              position:'absolute', right:-4, top:'50%', transform:'translateY(-50%)', zIndex:3,
+              width:32, height:32, borderRadius:'50%', border:'1.5px solid var(--line)',
+              background:'var(--primary)', color:'#fff', cursor:'pointer',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              boxShadow:'0 2px 8px rgba(230,57,70,0.25)', fontSize:14, lineHeight:1
+            }}>›</button>
+          )}
+
+          <div ref={chipRailRef} className="tag-rail" style={{scrollBehavior:'smooth'}}>
+            <button className={"chip " + (filter==="all"?"active":"")} onClick={()=>setFilter("all")}>
+              Todos <span className="mono" style={{opacity:.5, fontSize: 11}}>{products.length}</span>
+            </button>
+            {AREAS.map(a => {
+              const c = products.filter(r=>r.area===a.id).length;
+              return (
+                <button key={a.id} className={"chip " + (filter===a.id?"active":"")} onClick={()=>setFilter(a.id)}>
+                  {a.name} <span className="mono" style={{opacity:.5, fontSize: 11}}>{c}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </section>
 
