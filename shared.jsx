@@ -22,6 +22,7 @@ const AREAS = [
   { id: "ortoped",  name: "Ortopedia",                            color: "var(--acc-1)" },
   { id: "lideranca",name: "Comunicação e Liderança em Saúde",     color: "var(--acc-4)" },
   { id: "farma",    name: "Farmacologia",                          color: "var(--acc-3)" },
+  { id: "enamed",   name: "ENAMED",                                color: "var(--primary)" },
 ];
 
 const RESUMOS = [
@@ -63,6 +64,9 @@ const RESUMOS = [
 
   { id: "antib",   area: "farma",  title: "Antibióticos",                pages: 52, price: 49, updated: "Jun 26", topics: ["Beta-lactâmicos","Aminoglicosídeos","Resistência","Espectro"] },
   { id: "analg",   area: "farma",  title: "Analgesia & Sedação",         pages: 36, price: 39, updated: "Jun 26", topics: ["Opióides","AINEs","Escada OMS","UTI"] },
+
+  { id: "enamed1", area: "enamed", title: "Simulado ENAMED — Clínica Médica", pages: 40, price: 39, updated: "Jul 26", topics: ["Gabarito comentado","Pontos quentes","Raciocínio clínico","Revisão"] },
+  { id: "enamed2", area: "enamed", title: "Simulado ENAMED — Saúde Coletiva",  pages: 28, price: 35, updated: "Jul 26", topics: ["SUS","Epidemiologia","Vigilância","Atenção básica"] },
 ];
 
 // ─────────── Illustrations (abstract medical shapes) ───────────
@@ -224,6 +228,7 @@ const ILLU_FOR_AREA = {
   ortoped:  Illu.Ortoped,
   lideranca:Illu.Lider,
   farma:    Illu.Pill,
+  enamed:   Illu.Cross,
 };
 
 // ─────────── Logo ───────────
