@@ -71,7 +71,7 @@ function Hero({ go, copy }){
               Ver catálogo
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
             </button>
-            <button className="btn lg" onClick={()=>go({name:"product", id:"ic"})}>
+            <button className="btn lg" onClick={()=>go({name:"product", id:"r_saude_mulher_gratis"})}>
               Ver um exemplo grátis
             </button>
           </div>
