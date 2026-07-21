@@ -485,6 +485,25 @@ async function addTicketReply(ticketId, userId, message, isAdmin = false){
   return { reply: res.data };
 }
 
+async function claimFreeProduct(productId) {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) return { error: "not_authenticated" };
+    const res = await sb.functions.invoke("claim-free", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: { product_id: productId },
+    });
+    if (res.error) {
+      let msg = res.error.message;
+      try { if (res.error.context?.json) msg = (await res.error.context.json())?.error || msg; } catch {}
+      return { error: msg };
+    }
+    return res.data;
+  } catch (err) {
+    return { error: err?.message || "Erro desconhecido" };
+  }
+}
+
 Object.assign(window, {
   fetchProducts, fetchProductById, createProduct, updateProduct, deleteProduct,
   fetchUserPurchaseIds, fetchUserPendingPayments, cancelPendingPayment, fetchUserPurchases, fetchAllSales, fetchUsersCount,
@@ -493,6 +512,7 @@ Object.assign(window, {
   logEvent, hasAcceptedTerms, acceptTerms, saveDeviceFingerprint,
   fetchUserActivity, fetchUserLogs, setUserBan, resetUserDevice,
   adminGrantPurchase, adminRevokePurchase, saveQuizJson, uploadQuizImage,
+  claimFreeProduct,
   fetchUserTickets, submitSupportTicket, fetchAllTickets, resolveTicket, deleteTicket,
   fetchTicketReplies, addTicketReply,
   Q_TIMEOUT, queryWithTimeout, safe,

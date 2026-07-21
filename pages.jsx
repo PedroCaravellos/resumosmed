@@ -871,7 +871,7 @@ function Catalog({ go, addToCart, cart, initialFilter, currentUser }){
         ) : (
           <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(260px, 1fr))", gap: 16}}>
             {list.map(r => (
-              <ResumoCard key={r.id} r={r} go={go} addToCart={addToCart} cart={cart} isOwned={owned.has(r.id)} isPending={pendingChargeByItem.has(r.id)} onCancelPending={()=>cancelPending(r.id)}/>
+              <ResumoCard key={r.id} r={r} go={go} addToCart={addToCart} cart={cart} isOwned={owned.has(r.id)} isPending={pendingChargeByItem.has(r.id)} onCancelPending={()=>cancelPending(r.id)} onClaimed={reloadStatus}/>
             ))}
           </div>
         )}
@@ -880,16 +880,25 @@ function Catalog({ go, addToCart, cart, initialFilter, currentUser }){
   );
 }
 
-function ResumoCard({ r, go, addToCart, cart, isOwned, isPending, onCancelPending }){
+function ResumoCard({ r, go, addToCart, cart, isOwned, isPending, onCancelPending, onClaimed }){
   const area = AREAS.find(a=>a.id===r.area) || { name: r.area };
   const I = ILLU_FOR_AREA[r.area] || Illu.Cross;
   const inCart = cart?.some(c=>c.id===r.id);
   const [cancelling, setCancelling] = useStateP(false);
+  const [claimingFree, setClaimingFree] = useStateP(false);
   const cancel = async (e) => {
     e.stopPropagation();
     setCancelling(true);
     await onCancelPending?.();
     setCancelling(false);
+  };
+  const handleClaim = async (e) => {
+    e.stopPropagation();
+    setClaimingFree(true);
+    const res = await claimFreeProduct(r.id);
+    if (res?.error === "not_authenticated") { go({ name: "login" }); setClaimingFree(false); return; }
+    if (res?.ok) onClaimed?.();
+    setClaimingFree(false);
   };
   return (
     <div className="card" style={{padding:"var(--card-pad)", display:"flex", flexDirection:"column", gap: 14, cursor:"pointer", transition:"transform .15s ease"}}
@@ -910,7 +919,9 @@ function ResumoCard({ r, go, addToCart, cart, isOwned, isPending, onCancelPendin
         ))}
       </div>
       <div className="row between" style={{marginTop:"auto", paddingTop: 8}}>
-        <div className="display" style={{fontSize: 22, fontWeight: 700, color:"var(--fg)"}}>R$ {r.price}</div>
+        <div className="display" style={{fontSize: 22, fontWeight: 700, color: r.price === 0 ? "var(--primary)" : "var(--fg)"}}>
+          {r.price === 0 ? "Grátis" : `R$ ${r.price}`}
+        </div>
         {isOwned ? (
           <button disabled onClick={e=>e.stopPropagation()} className="btn" style={{padding:"8px 14px", fontSize: 13, opacity:.5, cursor:"default"}}>
             ✓ Já possuído
@@ -924,6 +935,10 @@ function ResumoCard({ r, go, addToCart, cart, isOwned, isPending, onCancelPendin
               {cancelling ? "…" : "Cancelar"}
             </button>
           </div>
+        ) : r.price === 0 ? (
+          <button onClick={handleClaim} disabled={claimingFree} className="btn primary" style={{padding:"8px 14px", fontSize: 13}}>
+            {claimingFree ? "Resgatando…" : "Resgatar grátis"}
+          </button>
         ) : (
           <button onClick={(e)=>{e.stopPropagation(); addToCart(r);}} className={"btn " + (inCart ? "" : "primary")} style={{padding:"8px 14px", fontSize: 13}}>
             {inCart ? "No carrinho ✓" : "+ Adicionar"}
@@ -945,6 +960,16 @@ function Product({ id, go, addToCart, cart, currentUser }){
   const [isOwned, setIsOwned] = useStateP(()=> !!(currentUser?.purchases?.includes(id)));
   const [pendingChargeId, setPendingChargeId] = useStateP(null);
   const [cancelling, setCancelling] = useStateP(false);
+  const [claimingFree, setClaimingFree] = useStateP(false);
+
+  const handleClaimFree = async () => {
+    if (!currentUser) { go({ name: "login" }); return; }
+    setClaimingFree(true);
+    const res = await claimFreeProduct(r.id);
+    if (res?.ok) reloadOwnership();
+    else if (res?.error === "not_authenticated") go({ name: "login" });
+    setClaimingFree(false);
+  };
 
   const reloadOwnership = React.useCallback(()=>{
     if (!currentUser?.id) return;
@@ -1044,8 +1069,10 @@ function Product({ id, go, addToCart, cart, currentUser }){
             </p>
 
             <div className="row" style={{alignItems:"baseline", gap: 12, marginBottom: 22}}>
-              <div className="display product-price" style={{fontSize: 48, fontWeight: 700, color:"var(--fg)", lineHeight: 1}}>R$ {r.price}</div>
-              <div style={{color:"var(--muted)", fontSize: 14}}>à vista · ou 3x sem juros</div>
+              <div className="display product-price" style={{fontSize: 48, fontWeight: 700, color: r.price === 0 ? "var(--primary)" : "var(--fg)", lineHeight: 1}}>
+                {r.price === 0 ? "Grátis" : `R$ ${r.price}`}
+              </div>
+              {r.price > 0 && <div style={{color:"var(--muted)", fontSize: 14}}>à vista · ou 3x sem juros</div>}
             </div>
 
             {isOwned ? (
@@ -1061,6 +1088,15 @@ function Product({ id, go, addToCart, cart, currentUser }){
                 <button onClick={cancelPending} disabled={cancelling} className="btn" style={{marginLeft:"auto", padding:"6px 14px", fontSize: 13}}>
                   {cancelling ? "Cancelando…" : "Cancelar e comprar de novo"}
                 </button>
+              </div>
+            ) : r.price === 0 ? (
+              <div style={{marginBottom: 24}}>
+                <button className="btn primary lg" onClick={handleClaimFree} disabled={claimingFree} style={{width:"100%", justifyContent:"center"}}>
+                  {claimingFree ? "Resgatando…" : "Resgatar grátis →"}
+                </button>
+                <div style={{fontSize: 13, color:"var(--muted)", marginTop: 8, textAlign:"center"}}>
+                  Liberado na sua biblioteca na hora. Sem cartão.
+                </div>
               </div>
             ) : (
               <div className="row gap-md" style={{flexWrap:"wrap", marginBottom: 24}}>
@@ -1202,9 +1238,25 @@ const validarCpf = (d) => {
 
 function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser }){
   const [paying, setPaying] = useStateP(false);
+  const [claimingFree, setClaimingFree] = useStateP(false);
   const [errMsg, setErrMsg] = useStateP("");
   const [cpf, setCpf] = useStateP("");
   const total = cart.reduce((s,r)=>s+r.price, 0);
+  const isFreeCart = total === 0 && cart.length > 0;
+
+  const claimAllFree = async () => {
+    if (!currentUser) { go({ name: "login" }); return; }
+    setClaimingFree(true);
+    setErrMsg("");
+    let anyError = null;
+    for (const item of cart) {
+      const res = await claimFreeProduct(item.id);
+      if (res?.error && res.error !== "not_authenticated") anyError = res.error;
+    }
+    setClaimingFree(false);
+    if (!anyError) { clearCart?.(); go({ name: "library" }); }
+    else setErrMsg("Erro ao resgatar: " + anyError);
+  };
 
   const checkout = async () => {
     if (!currentUser){ go({ name:"login" }); return; }
@@ -1301,7 +1353,7 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
               </div>
             )}
 
-            {currentUser && (
+            {currentUser && !isFreeCart && (
               <div style={{marginBottom: 12}}>
                 <div style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", marginBottom: 6, textTransform:"uppercase", letterSpacing:".06em"}}>CPF do pagador</div>
                 <input
@@ -1320,15 +1372,28 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
               </div>
             )}
 
-            <div style={{padding:"12px 14px", background:"color-mix(in oklab, #F59E0B 10%, var(--bg))", borderRadius:10, border:"1px solid color-mix(in oklab, #F59E0B 35%, transparent)", fontSize:13, color:"var(--fg)", marginBottom:14, lineHeight:1.55}}>
-              <strong style={{display:"block", marginBottom:4}}>⚠ Acesso vinculado a um único dispositivo</strong>
-              Após a compra, seus resumos só poderão ser abertos no dispositivo que você usar pela primeira vez na biblioteca. Para trocar de dispositivo será necessário contatar o suporte.
-            </div>
+            {!isFreeCart && (
+              <div style={{padding:"12px 14px", background:"color-mix(in oklab, #F59E0B 10%, var(--bg))", borderRadius:10, border:"1px solid color-mix(in oklab, #F59E0B 35%, transparent)", fontSize:13, color:"var(--fg)", marginBottom:14, lineHeight:1.55}}>
+                <strong style={{display:"block", marginBottom:4}}>⚠ Acesso vinculado a um único dispositivo</strong>
+                Após a compra, seus resumos só poderão ser abertos no dispositivo que você usar pela primeira vez na biblioteca. Para trocar de dispositivo será necessário contatar o suporte.
+              </div>
+            )}
 
-            <button className="btn primary lg" style={{width:"100%", justifyContent:"center"}} onClick={checkout} disabled={paying}>
-              {paying ? "Redirecionando…" : currentUser ? "Finalizar pagamento →" : "Entrar e finalizar →"}
-            </button>
-            <div style={{fontSize: 12, color:"var(--muted)", marginTop: 12, textAlign:"center"}}>Resumos liberados na sua biblioteca na hora.</div>
+            {isFreeCart ? (
+              <>
+                <button className="btn primary lg" style={{width:"100%", justifyContent:"center"}} onClick={claimAllFree} disabled={claimingFree}>
+                  {claimingFree ? "Resgatando…" : "Resgatar gratuitamente →"}
+                </button>
+                <div style={{fontSize: 12, color:"var(--muted)", marginTop: 12, textAlign:"center"}}>Sem cartão. Liberado na sua biblioteca na hora.</div>
+              </>
+            ) : (
+              <>
+                <button className="btn primary lg" style={{width:"100%", justifyContent:"center"}} onClick={checkout} disabled={paying}>
+                  {paying ? "Redirecionando…" : currentUser ? "Finalizar pagamento →" : "Entrar e finalizar →"}
+                </button>
+                <div style={{fontSize: 12, color:"var(--muted)", marginTop: 12, textAlign:"center"}}>Resumos liberados na sua biblioteca na hora.</div>
+              </>
+            )}
           </div>
         </div>
       )}
