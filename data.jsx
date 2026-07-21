@@ -2,7 +2,7 @@
 // Princípio: nenhuma função aqui pode pendurar a UI. Tudo tem timeout
 // explícito e devolve um valor padrão seguro em caso de erro.
 
-const Q_TIMEOUT = 6000;
+const Q_TIMEOUT = 12000;
 
 function queryWithTimeout(promise, label = "query"){
   return Promise.race([
@@ -21,13 +21,15 @@ async function safe(label, fn, fallback){
     // Antes disso, toda falha de query (RLS, timeout, rede) virava só um
     // console.warn no navegador de quem estava usando — invisível pra nós.
     // Agrupa por label (fingerprint) pra não virar um balde único no Sentry.
-    if (window.Sentry) {
-      window.Sentry.captureException(err instanceof Error ? err : new Error(String(err?.message || err)), {
-        level: "warning",
-        tags: { data_label: label },
-        fingerprint: ["data-safe", label],
-      });
-    }
+    try {
+      if (window.Sentry) {
+        window.Sentry.captureException(err instanceof Error ? err : new Error(String(err?.message || err)), {
+          level: "warning",
+          tags: { data_label: label },
+          fingerprint: ["data-safe", label],
+        });
+      }
+    } catch {}
     return fallback;
   }
 }

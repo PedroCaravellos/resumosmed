@@ -424,6 +424,11 @@ function AdminProducts({ go }){
         <div className="display" style={{fontSize: 20, fontWeight: 700}}>
           {loading ? "Carregando…" : `${products.length} resumos publicados`}
         </div>
+        {!loading && products.length === 0 && (
+          <button className="btn" onClick={reload} style={{fontSize: 13}}>
+            Recarregar
+          </button>
+        )}
       </div>
       <div className="card" style={{padding: 0, overflow:"hidden"}}>
         {loading ? (
