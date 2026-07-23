@@ -1780,6 +1780,8 @@ function AdminDiscounts(){
   // Form: sale em produto
   const [saleForm, setSaleForm] = useStateAdmin({}); // { [productId]: { type, value, expires_at } }
   const [saleSaving, setSaleSaving] = useStateAdmin({});
+  const [confirmDelete, setConfirmDelete] = useStateAdmin(null); // code id to delete
+  const [deleting, setDeleting] = useStateAdmin(false);
 
   const reload = async () => {
     setLoading(true);
@@ -1835,10 +1837,13 @@ function AdminDiscounts(){
     reload();
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm(`Excluir cupom "${id}"? Esta ação não pode ser desfeita.`)) return;
-    const r = await deleteDiscountCode(id);
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    const r = await deleteDiscountCode(confirmDelete);
+    setDeleting(false);
     if (r.error){ alert("Erro: " + r.error); return; }
+    setConfirmDelete(null);
     reload();
   };
 
@@ -2010,7 +2015,7 @@ function AdminDiscounts(){
                           <div className="row" style={{gap: 6, justifyContent:"flex-end"}}>
                             <button onClick={()=>handleToggleActive(c)} className="btn" style={{fontSize: 12, padding:"5px 10px"}}>{c.active ? "Desativar" : "Ativar"}</button>
                             <button onClick={()=>startEdit(c)} className="btn" style={{fontSize: 12, padding:"5px 10px"}}>Editar</button>
-                            <button onClick={()=>handleDelete(c.id)} className="btn" style={{fontSize: 12, padding:"5px 10px", color:"var(--primary)"}}>Excluir</button>
+                            <button onClick={()=>setConfirmDelete(c.id)} className="btn" style={{fontSize: 12, padding:"5px 10px", color:"var(--primary)"}}>Excluir</button>
                           </div>
                         </td>
                       </tr>
@@ -2019,6 +2024,28 @@ function AdminDiscounts(){
                 </tbody>
               </table>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal de confirmação de exclusão ── */}
+      {confirmDelete && (
+        <div style={{position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,.45)", backdropFilter:"blur(4px)", WebkitBackdropFilter:"blur(4px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px"}}
+          onClick={e=>{ if (e.target===e.currentTarget && !deleting) setConfirmDelete(null); }}>
+          <div style={{background:"var(--surface)", borderRadius:"var(--radius-lg)", border:"1px solid var(--line)", boxShadow:"var(--shadow-pop)", width:"100%", maxWidth:420, padding:28, animation:"pageIn .2s cubic-bezier(.2,.7,.1,1)"}}>
+            <div style={{width:44, height:44, borderRadius:12, background:"color-mix(in oklab, var(--primary) 12%, var(--surface))", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:16}}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            </div>
+            <div className="display" style={{fontSize:20, fontWeight:700, marginBottom:6}}>Excluir cupom?</div>
+            <div style={{fontSize:14, color:"var(--muted)", lineHeight:1.6, marginBottom:20}}>
+              O cupom <span className="mono" style={{fontWeight:700, color:"var(--fg)"}}>{confirmDelete}</span> será removido permanentemente. Clientes que já usaram não são afetados.
+            </div>
+            <div className="row" style={{gap:10, justifyContent:"flex-end"}}>
+              <button className="btn" onClick={()=>setConfirmDelete(null)} disabled={deleting}>Cancelar</button>
+              <button className="btn primary" onClick={handleDelete} disabled={deleting} style={{opacity:deleting?.7:1}}>
+                {deleting ? "Excluindo…" : "Sim, excluir"}
+              </button>
+            </div>
           </div>
         </div>
       )}
