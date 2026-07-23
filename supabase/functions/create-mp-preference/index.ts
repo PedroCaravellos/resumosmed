@@ -68,10 +68,11 @@ Deno.serve(async (req) => {
       return json({ error: "Sessão inválida" }, 401);
     }
 
-    const { items, cpf, name, email, completionUrl } = await req.json();
+    const { items, cpf, name, email, completionUrl, discount_code: rawCode } = await req.json();
     if (!items?.length) {
       return json({ error: "Carrinho vazio" }, 400);
     }
+    const discountCode = (rawCode || "").trim().toUpperCase() || null;
 
     const digits = (cpf || "").replace(/\D/g, "");
     if (digits.length !== 11 || !validarCpf(digits)) {
@@ -88,7 +89,7 @@ Deno.serve(async (req) => {
 
     const { data: dbProducts, error: dbProductErr } = await db
       .from("products")
-      .select("id, title, price")
+      .select("id, title, price, sale_type, sale_value, sale_expires_at")
       .in("id", itemIds)
       .eq("active", true);
 
@@ -127,7 +128,75 @@ Deno.serve(async (req) => {
       }, 409);
     }
 
-    const amount = dbProducts.reduce((s, p) => s + (p.price as number), 0);
+    // Valida cupom de desconto server-side
+    let dcRecord: { type: string; value: number; applies_to: string } | null = null;
+    if (discountCode) {
+      const { data: dc } = await db
+        .from("discount_codes")
+        .select("type, value, applies_to, active, starts_at, expires_at, max_uses, uses_count")
+        .eq("id", discountCode)
+        .maybeSingle();
+      const now = new Date();
+      const valid = dc && dc.active
+        && (!dc.starts_at || new Date(dc.starts_at) <= now)
+        && (!dc.expires_at || new Date(dc.expires_at) > now)
+        && (dc.max_uses === null || dc.uses_count < dc.max_uses);
+      if (valid) dcRecord = { type: dc.type, value: dc.value, applies_to: dc.applies_to };
+    }
+
+    // Calcula preço efetivo de cada produto (sale + cupom aplicados server-side)
+    function productSalePrice(p: { price: number; sale_type?: string | null; sale_value?: number | null; sale_expires_at?: string | null }): number {
+      const now = new Date();
+      if (!p.sale_type || p.sale_value == null) return p.price;
+      if (p.sale_expires_at && new Date(p.sale_expires_at) <= now) return p.price;
+      if (p.sale_type === "percent") return Math.max(0, Math.round(p.price * (1 - p.sale_value / 100)));
+      if (p.sale_type === "fixed") return Math.max(0, p.price - p.sale_value);
+      return p.price;
+    }
+
+    function applyCode(price: number, productId: string): number {
+      if (!dcRecord) return price;
+      if (dcRecord.applies_to !== "all" && dcRecord.applies_to !== productId) return price;
+      if (dcRecord.type === "percent") return Math.max(0, Math.round(price * (1 - dcRecord.value / 100)));
+      if (dcRecord.type === "fixed") return Math.max(0, price - dcRecord.value);
+      return price;
+    }
+
+    type DbProduct = { id: string; title: string; price: number; sale_type?: string | null; sale_value?: number | null; sale_expires_at?: string | null };
+    const pricedItems = (dbProducts as DbProduct[]).map(p => ({
+      ...p,
+      original_price: p.price,
+      final_price: applyCode(productSalePrice(p), p.id),
+    }));
+
+    const originalAmount = pricedItems.reduce((s, p) => s + p.original_price, 0);
+    const amount         = pricedItems.reduce((s, p) => s + p.final_price, 0);
+    const discountAmount = originalAmount - amount;
+
+    // Se desconto zerara o valor total: cria compra diretamente sem passar pelo MP
+    if (amount === 0) {
+      const rows = pricedItems.map(p => ({
+        user_id:         user.id,
+        product_id:      p.id,
+        product_title:   p.title,
+        price:           0,
+        method:          "Desconto",
+        discount_code:   discountCode,
+        discount_amount: discountAmount,
+      }));
+      const { error: freeInsertErr } = await db.from("purchases").insert(rows);
+      if (freeInsertErr) {
+        log("error", "free_discount_purchase_failed", { correlation_id: correlationId, user_id: user.id, db_error: freeInsertErr.message });
+        return json({ error: "Erro ao registrar compra gratuita." }, 500);
+      }
+      if (discountCode) {
+        const { data: dcc } = await db.from("discount_codes").select("uses_count").eq("id", discountCode).single();
+        await db.from("discount_codes").update({ uses_count: ((dcc?.uses_count as number) ?? 0) + 1 }).eq("id", discountCode);
+      }
+      log("info", "free_discount_purchase_created", { correlation_id: correlationId, user_id: user.id, discount_code: discountCode });
+      return json({ free: true }, 200, correlationId);
+    }
+
     const externalRef = crypto.randomUUID();
 
     const ALLOWED_RETURN_HOSTS = ["resumosmed.com", "resumosmed.com.br", "www.resumosmed.com", "www.resumosmed.com.br"];
@@ -143,11 +212,11 @@ Deno.serve(async (req) => {
     const body: Record<string, unknown> = {
       external_reference: externalRef,
       notification_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/mercadopago-webhook`,
-      items: dbProducts.map(p => ({
+      items: pricedItems.map(p => ({
         id: p.id,
         title: p.title,
         quantity: 1,
-        unit_price: p.price,
+        unit_price: p.final_price,
         currency_id: "BRL",
       })),
       payer: {
@@ -167,8 +236,10 @@ Deno.serve(async (req) => {
     log("info", "mp_preference_request", {
       correlation_id: correlationId,
       user_id: user.id,
-      items_count: dbProducts.length,
+      items_count: pricedItems.length,
       amount_brl: amount,
+      discount_code: discountCode,
+      discount_amount: discountAmount,
       cpf_provided: true,
       external_ref: externalRef,
     });
@@ -206,11 +277,13 @@ Deno.serve(async (req) => {
     });
 
     const { error: dbErr } = await db.from("pending_payments").insert({
-      id:      externalRef,
-      user_id: user.id,
-      items:   dbProducts.map(p => ({ id: p.id, title: p.title, price: p.price })),
+      id:              externalRef,
+      user_id:         user.id,
+      items:           pricedItems.map(p => ({ id: p.id, title: p.title, price: p.final_price })),
       amount,
-      status:  "pending",
+      status:          "pending",
+      discount_code:   discountCode,
+      discount_amount: discountAmount,
     });
 
     if (dbErr) {

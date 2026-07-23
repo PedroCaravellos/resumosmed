@@ -919,8 +919,16 @@ function ResumoCard({ r, go, addToCart, cart, isOwned, isPending, onCancelPendin
         ))}
       </div>
       <div className="row between" style={{marginTop:"auto", paddingTop: 8}}>
-        <div className="display" style={{fontSize: 22, fontWeight: 700, color: r.price === 0 ? "var(--primary)" : "var(--fg)"}}>
-          {r.price === 0 ? "Grátis" : `R$ ${r.price}`}
+        <div>
+          {r.on_sale && (
+            <div style={{fontSize: 11, color:"var(--primary-ink)", background:"var(--primary)", borderRadius: 6, padding:"2px 7px", fontWeight: 700, display:"inline-block", marginBottom: 4}}>
+              {r.sale_type === "percent" ? `-${r.sale_value}%` : `-R$ ${r.sale_value}`}
+            </div>
+          )}
+          <div className="display" style={{fontSize: 22, fontWeight: 700, color: (r.effective_price ?? r.price) === 0 ? "var(--primary)" : "var(--fg)"}}>
+            {r.on_sale && <span style={{fontSize: 14, color:"var(--muted)", textDecoration:"line-through", marginRight: 6, fontWeight: 500}}>R$ {r.price}</span>}
+            {(r.effective_price ?? r.price) === 0 ? "Grátis" : `R$ ${r.effective_price ?? r.price}`}
+          </div>
         </div>
         {isOwned ? (
           <button disabled onClick={e=>e.stopPropagation()} className="btn" style={{padding:"8px 14px", fontSize: 13, opacity:.5, cursor:"default"}}>
@@ -1068,11 +1076,21 @@ function Product({ id, go, addToCart, cart, currentUser }){
               Tudo que você precisa saber sobre {r.title.toLowerCase()} pra graduação. Diretrizes atualizadas, fluxogramas, mnemônicos e o que <i>realmente</i> cai na prova.
             </p>
 
-            <div className="row" style={{alignItems:"baseline", gap: 12, marginBottom: 22}}>
-              <div className="display product-price" style={{fontSize: 48, fontWeight: 700, color: r.price === 0 ? "var(--primary)" : "var(--fg)", lineHeight: 1}}>
-                {r.price === 0 ? "Grátis" : `R$ ${r.price}`}
+            <div style={{marginBottom: 22}}>
+              {r.on_sale && (
+                <div style={{display:"inline-flex", alignItems:"center", gap: 8, marginBottom: 8}}>
+                  <span style={{fontSize: 13, fontWeight: 700, color:"var(--primary-ink)", background:"var(--primary)", borderRadius: 8, padding:"3px 10px"}}>
+                    {r.sale_type === "percent" ? `-${r.sale_value}%` : `-R$ ${r.sale_value}`}
+                  </span>
+                  <span style={{fontSize: 14, color:"var(--muted)", textDecoration:"line-through"}}>R$ {r.price}</span>
+                </div>
+              )}
+              <div className="row" style={{alignItems:"baseline", gap: 12}}>
+                <div className="display product-price" style={{fontSize: 48, fontWeight: 700, color: (r.effective_price ?? r.price) === 0 ? "var(--primary)" : "var(--fg)", lineHeight: 1}}>
+                  {(r.effective_price ?? r.price) === 0 ? "Grátis" : `R$ ${r.effective_price ?? r.price}`}
+                </div>
+                {(r.effective_price ?? r.price) > 0 && <div style={{color:"var(--muted)", fontSize: 14}}>à vista · ou 3x sem juros</div>}
               </div>
-              {r.price > 0 && <div style={{color:"var(--muted)", fontSize: 14}}>à vista · ou 3x sem juros</div>}
             </div>
 
             {isOwned ? (
@@ -1241,8 +1259,42 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
   const [claimingFree, setClaimingFree] = useStateP(false);
   const [errMsg, setErrMsg] = useStateP("");
   const [cpf, setCpf] = useStateP("");
-  const total = cart.reduce((s,r)=>s+r.price, 0);
+  const [discountInput, setDiscountInput] = useStateP("");
+  const [appliedDiscount, setAppliedDiscount] = useStateP(null); // { type, value, applies_to }
+  const [discountErr, setDiscountErr] = useStateP("");
+  const [validating, setValidating] = useStateP(false);
+
+  const baseTotal = cart.reduce((s,r)=>s+(r.effective_price??r.price), 0);
+
+  const codeDiscountAmt = (() => {
+    if (!appliedDiscount) return 0;
+    const { type, value, applies_to } = appliedDiscount;
+    if (applies_to !== "all") {
+      const item = cart.find(r => r.id === applies_to);
+      if (!item) return 0;
+      const p = item.effective_price ?? item.price;
+      return type === "percent" ? Math.round(p * value / 100) : Math.min(p, value);
+    }
+    return type === "percent" ? Math.round(baseTotal * value / 100) : Math.min(baseTotal, value);
+  })();
+
+  const total = Math.max(0, baseTotal - codeDiscountAmt);
   const isFreeCart = total === 0 && cart.length > 0;
+
+  const applyDiscount = async () => {
+    const code = discountInput.trim().toUpperCase();
+    if (!code) return;
+    if (!currentUser) { go({ name: "login" }); return; }
+    setValidating(true);
+    setDiscountErr("");
+    setAppliedDiscount(null);
+    const pid = cart.length === 1 ? cart[0].id : null;
+    const res = await validateDiscountCode(code, pid);
+    setValidating(false);
+    if (!res?.valid) { setDiscountErr(res?.error || "Cupom inválido"); return; }
+    setAppliedDiscount({ ...res, code });
+    setDiscountInput("");
+  };
 
   const claimAllFree = async () => {
     if (!currentUser) { go({ name: "login" }); return; }
@@ -1273,11 +1325,15 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
       const correlationId = `${window.__SESSION_ID || "x"}_${Date.now()}`;
       const { data, error } = await sb.functions.invoke("create-mp-preference", {
         headers: { Authorization: `Bearer ${session.access_token}`, "X-Correlation-Id": correlationId },
-        body: { items: cart, cpf: rawCpf, name: currentUser.name, email: currentUser.email, completionUrl },
+        body: { items: cart, cpf: rawCpf, name: currentUser.name, email: currentUser.email, completionUrl, discount_code: appliedDiscount?.code || null },
       });
+      if (!error && data?.free) {
+        await refreshUser?.();
+        clearCart();
+        go({ name: "library" });
+        return;
+      }
       if (error || !data?.checkoutUrl){
-        // supabase-js não parseia o corpo em respostas non-2xx — o JSON de erro
-        // (ex: bloqueio de pagamento pendente) fica em error.context (Response).
         let reason = data?.error;
         if (!reason && error?.context?.json) {
           try { reason = (await error.context.json())?.error; } catch { /* corpo não-JSON */ }
@@ -1330,7 +1386,10 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
                     <div className="display" style={{fontSize: 18, fontWeight: 600}}>{r.title}</div>
                     <div className="mono" style={{fontSize: 12, color:"var(--muted)", marginTop: 2}}>{r.pages} páginas · atualizado {r.updated}</div>
                   </div>
-                  <div className="display" style={{fontSize: 20, fontWeight: 700}}>R$ {r.price}</div>
+                  <div style={{textAlign:"right"}}>
+                    {r.on_sale && <div style={{fontSize: 11, color:"var(--muted)", textDecoration:"line-through", lineHeight:1.2}}>R$ {r.price}</div>}
+                    <div className="display" style={{fontSize: 20, fontWeight: 700, color: r.on_sale ? "var(--primary)" : "inherit"}}>R$ {r.effective_price ?? r.price}</div>
+                  </div>
                   <button onClick={()=>removeFromCart(r.id)} className="btn ghost" style={{padding: 8}} aria-label="Remover">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                   </button>
@@ -1341,7 +1400,51 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
 
           <div className="card product-sticky" style={{padding: 24, height:"fit-content", position:"sticky", top: 96}}>
             <div className="display" style={{fontSize: 18, fontWeight: 700, marginBottom: 14}}>Resumo</div>
+
+            {/* Campo de cupom */}
+            {!appliedDiscount ? (
+              <div style={{marginBottom: 14}}>
+                <div style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", marginBottom: 6, textTransform:"uppercase", letterSpacing:".06em"}}>Cupom de desconto</div>
+                <div className="row" style={{gap: 6}}>
+                  <input
+                    value={discountInput}
+                    onChange={e=>setDiscountInput(e.target.value.toUpperCase())}
+                    onKeyDown={e=>e.key==="Enter" && applyDiscount()}
+                    placeholder="CÓDIGO"
+                    style={{flex:1, padding:"10px 12px", borderRadius: 10, border:"1px solid var(--line-strong)", background:"var(--bg)", color:"var(--fg)", fontFamily:"var(--font-mono)", fontSize: 13, outline:"none", letterSpacing:".05em", textTransform:"uppercase"}}
+                  />
+                  <button className="btn" onClick={applyDiscount} disabled={validating || !discountInput.trim()} style={{padding:"10px 14px", fontSize: 13}}>
+                    {validating ? "…" : "Aplicar"}
+                  </button>
+                </div>
+                {discountErr && <div style={{fontSize: 12, color:"var(--primary)", fontWeight: 600, marginTop: 6}}>{discountErr}</div>}
+              </div>
+            ) : (
+              <div style={{marginBottom: 14, padding:"10px 12px", background:"color-mix(in oklab, var(--acc-2) 30%, var(--bg))", borderRadius: 10, border:"1px solid var(--acc-2)", display:"flex", alignItems:"center", gap: 8}}>
+                <div style={{fontSize: 13}}>✓</div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight: 700, fontSize: 13, fontFamily:"var(--font-mono)"}}>{appliedDiscount.code}</div>
+                  <div style={{fontSize: 11, color:"var(--muted)"}}>
+                    {appliedDiscount.type === "percent" ? `${appliedDiscount.value}% de desconto` : `R$ ${appliedDiscount.value} de desconto`}
+                  </div>
+                </div>
+                <button onClick={()=>{ setAppliedDiscount(null); setDiscountErr(""); }} className="btn ghost" style={{padding: 4, fontSize: 16, lineHeight:1}}>×</button>
+              </div>
+            )}
+
             <div style={{borderTop:"1px solid var(--line)", margin:"14px 0"}}/>
+            {codeDiscountAmt > 0 && (
+              <div className="row between" style={{marginBottom: 8, fontSize: 14}}>
+                <span style={{color:"var(--muted)"}}>Subtotal</span>
+                <span>R$ {baseTotal}</span>
+              </div>
+            )}
+            {codeDiscountAmt > 0 && (
+              <div className="row between" style={{marginBottom: 8, fontSize: 14}}>
+                <span style={{color:"var(--primary)", fontWeight: 600}}>Desconto ({appliedDiscount.code})</span>
+                <span style={{color:"var(--primary)", fontWeight: 600}}>- R$ {codeDiscountAmt}</span>
+              </div>
+            )}
             <div className="row between" style={{marginBottom: 18}}>
               <span style={{fontWeight: 700}}>Total</span>
               <span className="display" style={{fontSize: 28, fontWeight: 700}}>R$ {total}</span>

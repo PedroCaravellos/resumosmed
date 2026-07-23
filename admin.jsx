@@ -36,17 +36,19 @@ function AdminDashboard({ go, currentUser, onLogout }){
           <TabBtn active={tab==="upload"} onClick={()=>setTab("upload")}>Upload de resumo</TabBtn>
           <TabBtn active={tab==="products"} onClick={()=>setTab("products")}>Resumos publicados</TabBtn>
           <TabBtn active={tab==="history"} onClick={()=>setTab("history")}>Histórico de compras</TabBtn>
+          <TabBtn active={tab==="descontos"} onClick={()=>setTab("descontos")}>Descontos</TabBtn>
           <TabBtn active={tab==="users"} onClick={()=>setTab("users")}>Usuários & atividade</TabBtn>
           <TabBtn active={tab==="suporte"} onClick={()=>setTab("suporte")}>Suporte</TabBtn>
         </div>
       </section>
 
       <section className="page" style={{paddingBottom:"var(--gap-xl)"}}>
-        {tab === "upload"   && <AdminUpload/>}
-        {tab === "products" && <AdminProducts go={go}/>}
-        {tab === "history"  && <AdminHistory/>}
-        {tab === "users"    && <AdminUsers/>}
-        {tab === "suporte"  && <AdminSupport currentUser={currentUser}/>}
+        {tab === "upload"    && <AdminUpload/>}
+        {tab === "products"  && <AdminProducts go={go}/>}
+        {tab === "history"   && <AdminHistory/>}
+        {tab === "descontos" && <AdminDiscounts/>}
+        {tab === "users"     && <AdminUsers/>}
+        {tab === "suporte"   && <AdminSupport currentUser={currentUser}/>}
       </section>
     </div>
   );
@@ -622,6 +624,7 @@ function AdminHistory(){
               <th style={th()}>Resumo</th>
               <th style={th()}>Data</th>
               <th style={th()}>Pagamento</th>
+              <th style={th()}>Cupom</th>
               <th style={{...th(), textAlign:"right"}}>Valor</th>
             </tr>
           </thead>
@@ -640,6 +643,14 @@ function AdminHistory(){
                 <td style={td()}>{r.product_title}</td>
                 <td style={td()} className="mono">{fmt(r.created_at)}</td>
                 <td style={td()}><span className="pill">{r.method}</span></td>
+                <td style={td()}>
+                  {r.discount_code ? (
+                    <div>
+                      <span className="mono" style={{fontSize: 12, fontWeight: 600, background:"color-mix(in oklab, var(--acc-2) 30%, var(--bg))", padding:"2px 7px", borderRadius: 6, color:"var(--fg)"}}>{r.discount_code}</span>
+                      {r.discount_amount > 0 && <div style={{fontSize: 11, color:"var(--primary)", marginTop: 3}}>- R$ {r.discount_amount}</div>}
+                    </div>
+                  ) : <span style={{color:"var(--muted)"}}>—</span>}
+                </td>
                 <td style={{...td(), textAlign:"right", fontWeight: 700}}>R$ {r.price}</td>
               </tr>
             ))}
@@ -1705,6 +1716,339 @@ function AdminSupport({ currentUser }){
             <AdminTicketCard key={t.id} ticket={t} currentUser={currentUser}
               onResolved={handleResolved} onDeleted={handleDeleted} />
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────── Descontos ───────────
+function AdminDiscounts(){
+  const [codes, setCodes] = useStateAdmin([]);
+  const [products, setProducts] = useStateAdmin([]);
+  const [loading, setLoading] = useStateAdmin(true);
+  const [err, setErr] = useStateAdmin("");
+  const [section, setSection] = useStateAdmin("codes"); // codes | sale
+
+  // Form: novo/editar cupom
+  const emptyForm = { id:"", description:"", type:"percent", value:"", applies_to:"all", max_uses:"", active:true, starts_at:"", expires_at:"" };
+  const [form, setForm] = useStateAdmin(emptyForm);
+  const [editing, setEditing] = useStateAdmin(null); // code id being edited
+  const [saving, setSaving] = useStateAdmin(false);
+  const [formErr, setFormErr] = useStateAdmin("");
+
+  // Form: sale em produto
+  const [saleForm, setSaleForm] = useStateAdmin({}); // { [productId]: { type, value, expires_at } }
+  const [saleSaving, setSaleSaving] = useStateAdmin({});
+
+  const reload = async () => {
+    setLoading(true);
+    try {
+      const [c, p] = await Promise.all([fetchDiscountCodes(), fetchProducts()]);
+      setCodes(c || []);
+      setProducts(p || []);
+    } catch(e){ setErr(e.message); }
+    finally { setLoading(false); }
+  };
+  useEffectAdmin(()=>{ reload(); }, []);
+
+  const upd = k => e => setForm(f => ({...f, [k]: e.target.type==="checkbox" ? e.target.checked : e.target.value}));
+
+  const startEdit = (c) => {
+    setEditing(c.id);
+    setForm({
+      id: c.id, description: c.description||"", type: c.type, value: String(c.value),
+      applies_to: c.applies_to, max_uses: c.max_uses != null ? String(c.max_uses) : "",
+      active: c.active,
+      starts_at: c.starts_at ? c.starts_at.slice(0,16) : "",
+      expires_at: c.expires_at ? c.expires_at.slice(0,16) : "",
+    });
+  };
+  const cancelEdit = () => { setEditing(null); setForm(emptyForm); setFormErr(""); };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setFormErr("");
+    if (!form.id.trim()){ setFormErr("Código obrigatório."); return; }
+    if (!form.value || isNaN(Number(form.value)) || Number(form.value) <= 0){ setFormErr("Valor inválido."); return; }
+    if (form.type==="percent" && Number(form.value) > 100){ setFormErr("Percentual não pode ser maior que 100."); return; }
+    setSaving(true);
+    const data = {
+      description: form.description,
+      type: form.type,
+      value: Number(form.value),
+      applies_to: form.applies_to,
+      max_uses: form.max_uses ? Number(form.max_uses) : null,
+      active: form.active,
+      starts_at: form.starts_at || null,
+      expires_at: form.expires_at || null,
+    };
+    let r;
+    if (editing){
+      r = await updateDiscountCode(editing, data);
+    } else {
+      r = await createDiscountCode({ id: form.id.trim().toUpperCase(), ...data });
+    }
+    setSaving(false);
+    if (r.error){ setFormErr(r.error); return; }
+    cancelEdit();
+    reload();
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm(`Excluir cupom "${id}"? Esta ação não pode ser desfeita.`)) return;
+    const r = await deleteDiscountCode(id);
+    if (r.error){ alert("Erro: " + r.error); return; }
+    reload();
+  };
+
+  const handleToggleActive = async (c) => {
+    const r = await updateDiscountCode(c.id, { active: !c.active });
+    if (r.error){ alert("Erro: " + r.error); return; }
+    reload();
+  };
+
+  const fmtDate = d => d ? new Date(d).toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"2-digit"}) : "—";
+
+  const codeStatus = (c) => {
+    const now = new Date();
+    if (!c.active) return { label:"Inativo", color:"var(--muted)" };
+    if (c.starts_at && new Date(c.starts_at) > now) return { label:"Agendado", color:"var(--acc-4)" };
+    if (c.expires_at && new Date(c.expires_at) <= now) return { label:"Expirado", color:"var(--primary)" };
+    if (c.max_uses != null && c.uses_count >= c.max_uses) return { label:"Esgotado", color:"var(--primary)" };
+    return { label:"Ativo", color:"var(--acc-2)" };
+  };
+
+  // product sale helpers
+  const initSaleForm = (p) => {
+    setSaleForm(f => ({...f, [p.id]: {
+      type: p.sale_type || "percent",
+      value: p.sale_value != null ? String(p.sale_value) : "",
+      expires_at: p.sale_expires_at ? p.sale_expires_at.slice(0,16) : "",
+    }}));
+  };
+  const updSale = (pid, k) => e => setSaleForm(f => ({...f, [pid]: {...(f[pid]||{}), [k]: e.target.value}}));
+
+  const saveSale = async (p) => {
+    const f = saleForm[p.id] || {};
+    setSaleSaving(s => ({...s, [p.id]: true}));
+    const val = f.value ? Number(f.value) : null;
+    const r = await setProductSale(p.id, f.value ? f.type : null, val, f.expires_at || null);
+    setSaleSaving(s => ({...s, [p.id]: false}));
+    if (r.error){ alert("Erro: " + r.error); return; }
+    reload();
+  };
+
+  const clearSale = async (p) => {
+    setSaleSaving(s => ({...s, [p.id]: true}));
+    const r = await setProductSale(p.id, null, null, null);
+    setSaleSaving(s => ({...s, [p.id]: false}));
+    if (r.error){ alert("Erro: " + r.error); return; }
+    setSaleForm(f => {const n={...f}; delete n[p.id]; return n;});
+    reload();
+  };
+
+  if (loading) return <div style={{marginTop: 28, display:"flex", justifyContent:"center", padding: 60}}><Spinner/></div>;
+  if (err) return <div style={{marginTop: 28, color:"var(--primary)"}}>{err}</div>;
+
+  return (
+    <div style={{marginTop: 28}}>
+      <div className="row" style={{gap: 8, marginBottom: 24}}>
+        <button onClick={()=>setSection("codes")} className={`btn${section==="codes" ? " primary" : ""}`} style={{fontSize: 13}}>Cupons de desconto</button>
+        <button onClick={()=>setSection("sale")} className={`btn${section==="sale" ? " primary" : ""}`} style={{fontSize: 13}}>Promoção em produtos</button>
+      </div>
+
+      {/* ── Cupons ── */}
+      {section === "codes" && (
+        <div style={{display:"flex", flexDirection:"column", gap: 24}}>
+
+          {/* Formulário criar/editar */}
+          <div className="card" style={{padding: 24}}>
+            <div className="display" style={{fontSize: 17, fontWeight: 700, marginBottom: 18}}>
+              {editing ? `Editando: ${editing}` : "Novo cupom"}
+            </div>
+            <form onSubmit={submit}>
+              <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))", gap: 14, marginBottom: 14}}>
+                <div>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Código *</label>
+                  <input value={form.id} onChange={e=>setForm(f=>({...f, id:e.target.value.toUpperCase()}))} disabled={!!editing} placeholder="EX: MEDICINA20" style={{...iStyle(), width:"100%", boxSizing:"border-box", fontFamily:"var(--font-mono)", textTransform:"uppercase"}} />
+                </div>
+                <div>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Tipo</label>
+                  <select value={form.type} onChange={upd("type")} style={{...iStyle(), width:"100%", boxSizing:"border-box"}}>
+                    <option value="percent">Percentual (%)</option>
+                    <option value="fixed">Fixo (R$)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Valor *</label>
+                  <input type="number" min="0.01" step="0.01" value={form.value} onChange={upd("value")} placeholder={form.type==="percent" ? "20" : "10.00"} style={{...iStyle(), width:"100%", boxSizing:"border-box"}} />
+                </div>
+                <div>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Aplica em</label>
+                  <select value={form.applies_to} onChange={upd("applies_to")} style={{...iStyle(), width:"100%", boxSizing:"border-box"}}>
+                    <option value="all">Todos os produtos</option>
+                    {products.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Máx. usos</label>
+                  <input type="number" min="1" step="1" value={form.max_uses} onChange={upd("max_uses")} placeholder="Ilimitado" style={{...iStyle(), width:"100%", boxSizing:"border-box"}} />
+                </div>
+                <div>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Início</label>
+                  <input type="datetime-local" value={form.starts_at} onChange={upd("starts_at")} style={{...iStyle(), width:"100%", boxSizing:"border-box"}} />
+                </div>
+                <div>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Expiração</label>
+                  <input type="datetime-local" value={form.expires_at} onChange={upd("expires_at")} style={{...iStyle(), width:"100%", boxSizing:"border-box"}} />
+                </div>
+                <div>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Descrição interna</label>
+                  <input value={form.description} onChange={upd("description")} placeholder="Para referência" style={{...iStyle(), width:"100%", boxSizing:"border-box"}} />
+                </div>
+              </div>
+              <div className="row" style={{alignItems:"center", gap: 12, flexWrap:"wrap"}}>
+                <label className="row" style={{gap: 8, cursor:"pointer", userSelect:"none", fontSize: 14}}>
+                  <input type="checkbox" checked={form.active} onChange={upd("active")} style={{width: 16, height: 16, accentColor:"var(--primary)"}} />
+                  Ativo
+                </label>
+                {formErr && <span style={{color:"var(--primary)", fontSize: 13, fontWeight: 600}}>{formErr}</span>}
+                <div style={{marginLeft:"auto", display:"flex", gap: 8}}>
+                  {editing && <button type="button" onClick={cancelEdit} className="btn">Cancelar</button>}
+                  <button type="submit" disabled={saving} className="btn primary">{saving ? "Salvando…" : editing ? "Salvar alterações" : "Criar cupom"}</button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          {/* Tabela de cupons */}
+          <div className="card" style={{padding: 0, overflow:"hidden"}}>
+            {codes.length === 0 ? (
+              <div style={{padding: 60, textAlign:"center", color:"var(--muted)"}}>Nenhum cupom cadastrado.</div>
+            ) : (
+              <table style={{width:"100%", borderCollapse:"collapse", fontSize: 14}}>
+                <thead>
+                  <tr style={{textAlign:"left", color:"var(--muted)", fontSize: 11, textTransform:"uppercase", letterSpacing:".08em", background:"var(--bg)"}}>
+                    <th style={th()}>Código</th>
+                    <th style={th()}>Desconto</th>
+                    <th style={th()}>Aplica em</th>
+                    <th style={th()}>Usos</th>
+                    <th style={th()}>Validade</th>
+                    <th style={th()}>Status</th>
+                    <th style={th()}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {codes.map(c => {
+                    const st = codeStatus(c);
+                    return (
+                      <tr key={c.id} style={{borderTop:"1px solid var(--line)"}}>
+                        <td style={td()}>
+                          <span className="mono" style={{fontWeight: 700, fontSize: 13}}>{c.id}</span>
+                          {c.description && <div style={{fontSize: 11, color:"var(--muted)", marginTop: 2}}>{c.description}</div>}
+                        </td>
+                        <td style={td()}>
+                          <span style={{fontWeight: 700, color:"var(--primary)"}}>
+                            {c.type==="percent" ? `${c.value}%` : `R$ ${c.value}`}
+                          </span>
+                        </td>
+                        <td style={td()} className="mono" style={{fontSize: 12}}>
+                          {c.applies_to === "all" ? "Todos" : (products.find(p=>p.id===c.applies_to)?.title || c.applies_to)}
+                        </td>
+                        <td style={td()}>
+                          <span style={{fontWeight: 600}}>{c.uses_count}</span>
+                          {c.max_uses != null && <span style={{color:"var(--muted)"}}>/{c.max_uses}</span>}
+                        </td>
+                        <td style={td()} className="mono" style={{fontSize: 12}}>
+                          {c.expires_at ? fmtDate(c.expires_at) : "Sem limite"}
+                        </td>
+                        <td style={td()}>
+                          <span style={{fontSize: 12, fontWeight: 600, color: st.color, background:`color-mix(in oklab, ${st.color} 15%, var(--bg))`, padding:"3px 8px", borderRadius: 6}}>{st.label}</span>
+                        </td>
+                        <td style={td()}>
+                          <div className="row" style={{gap: 6, justifyContent:"flex-end"}}>
+                            <button onClick={()=>handleToggleActive(c)} className="btn" style={{fontSize: 12, padding:"5px 10px"}}>{c.active ? "Desativar" : "Ativar"}</button>
+                            <button onClick={()=>startEdit(c)} className="btn" style={{fontSize: 12, padding:"5px 10px"}}>Editar</button>
+                            <button onClick={()=>handleDelete(c.id)} className="btn" style={{fontSize: 12, padding:"5px 10px", color:"var(--primary)"}}>Excluir</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Promoção em produtos ── */}
+      {section === "sale" && (
+        <div className="card" style={{padding: 0, overflow:"hidden"}}>
+          {products.length === 0 ? (
+            <div style={{padding: 60, textAlign:"center", color:"var(--muted)"}}>Nenhum produto encontrado.</div>
+          ) : (
+            <table style={{width:"100%", borderCollapse:"collapse", fontSize: 14}}>
+              <thead>
+                <tr style={{textAlign:"left", color:"var(--muted)", fontSize: 11, textTransform:"uppercase", letterSpacing:".08em", background:"var(--bg)"}}>
+                  <th style={th()}>Produto</th>
+                  <th style={th()}>Preço atual</th>
+                  <th style={th()}>Promoção ativa</th>
+                  <th style={th()}>Configurar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {products.filter(p=>p.active).map(p => {
+                  const sf = saleForm[p.id];
+                  const hasSale = p.sale_type && p.sale_value != null;
+                  const saleExpired = hasSale && p.sale_expires_at && new Date(p.sale_expires_at) <= new Date();
+                  return (
+                    <tr key={p.id} style={{borderTop:"1px solid var(--line)"}}>
+                      <td style={td()}>
+                        <div style={{fontWeight: 600}}>{p.title}</div>
+                        <div className="mono" style={{fontSize: 11, color:"var(--muted)"}}>{p.id}</div>
+                      </td>
+                      <td style={{...td(), fontWeight: 700}}>R$ {p.price}</td>
+                      <td style={td()}>
+                        {hasSale && !saleExpired ? (
+                          <div>
+                            <span style={{color:"var(--primary)", fontWeight: 700}}>
+                              {p.sale_type === "percent" ? `-${p.sale_value}%` : `-R$ ${p.sale_value}`}
+                            </span>
+                            {p.sale_expires_at && <div style={{fontSize: 11, color:"var(--muted)"}}>até {fmtDate(p.sale_expires_at)}</div>}
+                          </div>
+                        ) : saleExpired ? (
+                          <span style={{color:"var(--muted)", fontSize: 12}}>Expirada</span>
+                        ) : (
+                          <span style={{color:"var(--muted)"}}>—</span>
+                        )}
+                      </td>
+                      <td style={td()}>
+                        {sf ? (
+                          <div className="row" style={{gap: 8, alignItems:"flex-end", flexWrap:"wrap"}}>
+                            <select value={sf.type} onChange={updSale(p.id,"type")} style={{...iStyle(), fontSize: 13, padding:"7px 10px"}}>
+                              <option value="percent">%</option>
+                              <option value="fixed">R$</option>
+                            </select>
+                            <input type="number" min="0.01" step="0.01" value={sf.value} onChange={updSale(p.id,"value")} placeholder={sf.type==="percent"?"20":"10"} style={{...iStyle(), fontSize: 13, padding:"7px 10px", width: 80}} />
+                            <input type="datetime-local" value={sf.expires_at} onChange={updSale(p.id,"expires_at")} title="Expiração (opcional)" style={{...iStyle(), fontSize: 12, padding:"7px 10px"}} />
+                            <button onClick={()=>saveSale(p)} disabled={saleSaving[p.id] || !sf.value} className="btn primary" style={{fontSize: 12, padding:"7px 12px"}}>{saleSaving[p.id] ? "…" : "Salvar"}</button>
+                            <button onClick={()=>setSaleForm(f=>{const n={...f}; delete n[p.id]; return n;})} className="btn" style={{fontSize: 12, padding:"7px 12px"}}>Cancelar</button>
+                            {hasSale && <button onClick={()=>clearSale(p)} className="btn" style={{fontSize: 12, padding:"7px 12px", color:"var(--primary)"}}>Remover promoção</button>}
+                          </div>
+                        ) : (
+                          <button onClick={()=>initSaleForm(p)} className="btn" style={{fontSize: 12, padding:"7px 12px"}}>
+                            {hasSale ? "Editar promoção" : "Adicionar promoção"}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       )}
     </div>

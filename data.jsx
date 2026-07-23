@@ -38,7 +38,7 @@ async function safe(label, fn, fallback){
 async function fetchProducts(){
   const res = await safe("fetchProducts", () => sb
     .from("products")
-    .select("id,title,area,price,pages,topics,updated,file_path,file_name,created_at,preview,active,quiz_json")
+    .select("id,title,area,price,pages,topics,updated,file_path,file_name,created_at,preview,active,quiz_json,sale_type,sale_value,sale_expires_at")
     .eq("active", true)
     .order("created_at", { ascending: false }),
     { data: [], error: null }
@@ -51,7 +51,7 @@ async function fetchProductById(id){
   if (!id) return null;
   const res = await safe("fetchProductById", () => sb
     .from("products")
-    .select("id,title,area,price,pages,topics,updated,file_path,file_name,preview,quiz_json")
+    .select("id,title,area,price,pages,topics,updated,file_path,file_name,preview,quiz_json,sale_type,sale_value,sale_expires_at")
     .eq("id", id).maybeSingle(),
     { data: null, error: null }
   );
@@ -162,12 +162,22 @@ async function updateProduct(id, updates, newFile){
 }
 
 function normalizeProduct(p){
+  const now = new Date();
+  const saleActive = p.sale_type && p.sale_value != null
+    && (!p.sale_expires_at || new Date(p.sale_expires_at) > now);
+  let effectivePrice = p.price;
+  if (saleActive) {
+    if (p.sale_type === "percent") effectivePrice = Math.max(0, Math.round(p.price * (1 - p.sale_value / 100)));
+    else if (p.sale_type === "fixed") effectivePrice = Math.max(0, p.price - p.sale_value);
+  }
   return {
     ...p,
     topics: Array.isArray(p.topics) ? p.topics : [],
     updated: p.updated || "",
     preview: p.preview || null,
     _custom: !!p.file_path || (p.id||"").startsWith("r_"),
+    effective_price: effectivePrice,
+    on_sale: saleActive && effectivePrice < p.price,
   };
 }
 
@@ -232,7 +242,7 @@ async function fetchUserPurchases(userId){
 async function fetchAllSales(){
   const res = await safe("fetchAllSales", () => sb
     .from("sales_with_user")
-    .select("id,user_id,product_id,product_title,price,method,created_at,user_name,user_email,product_area")
+    .select("id,user_id,product_id,product_title,price,method,created_at,discount_code,discount_amount,user_name,user_email,product_area")
     .order("created_at", { ascending: false }),
     { data: [], error: null }
   );
@@ -506,6 +516,87 @@ async function claimFreeProduct(productId) {
   }
 }
 
+// ─────────── Descontos ───────────
+async function fetchDiscountCodes(){
+  const res = await safe("fetchDiscountCodes", () => sb
+    .from("discount_codes")
+    .select("*")
+    .order("created_at", { ascending: false }),
+    { data: [], error: null }
+  );
+  if (res?.error){ console.warn("[fetchDiscountCodes]", res.error); return []; }
+  return res?.data || [];
+}
+
+async function createDiscountCode(data){
+  const row = {
+    id:          (data.id || "").trim().toUpperCase(),
+    description: data.description || "",
+    type:        data.type || "percent",
+    value:       parseFloat(data.value) || 0,
+    applies_to:  data.applies_to || "all",
+    max_uses:    data.max_uses != null && data.max_uses !== "" ? parseInt(data.max_uses, 10) : null,
+    active:      data.active !== false,
+    starts_at:   data.starts_at || null,
+    expires_at:  data.expires_at || null,
+  };
+  if (!row.id) return { error: "Código obrigatório." };
+  if (!row.value || row.value <= 0) return { error: "Valor do desconto inválido." };
+  if (row.type === "percent" && row.value > 100) return { error: "Desconto percentual não pode ser maior que 100%." };
+  const res = await safe("createDiscountCode", () => sb.from("discount_codes").insert(row).select().single(), { data: null, error: { message: "timeout" } });
+  if (res?.error) return { error: res.error.message };
+  return { code: res.data };
+}
+
+async function updateDiscountCode(id, data){
+  const patch = {};
+  if (data.description !== undefined) patch.description = data.description;
+  if (data.type        !== undefined) patch.type        = data.type;
+  if (data.value       !== undefined) patch.value       = parseFloat(data.value) || 0;
+  if (data.applies_to  !== undefined) patch.applies_to  = data.applies_to;
+  if (data.max_uses    !== undefined) patch.max_uses    = data.max_uses != null && data.max_uses !== "" ? parseInt(data.max_uses, 10) : null;
+  if (data.active      !== undefined) patch.active      = data.active;
+  if (data.starts_at   !== undefined) patch.starts_at   = data.starts_at || null;
+  if (data.expires_at  !== undefined) patch.expires_at  = data.expires_at || null;
+  const res = await safe("updateDiscountCode", () => sb.from("discount_codes").update(patch).eq("id", id).select().single(), { data: null, error: { message: "timeout" } });
+  if (res?.error) return { error: res.error.message };
+  return { code: res.data };
+}
+
+async function deleteDiscountCode(id){
+  const res = await safe("deleteDiscountCode", () => sb.from("discount_codes").delete().eq("id", id), { error: { message: "timeout" } });
+  if (res?.error) return { error: res.error.message };
+  return { ok: true };
+}
+
+async function setProductSale(productId, saleType, saleValue, expiresAt){
+  const patch = saleType && saleValue
+    ? { sale_type: saleType, sale_value: parseFloat(saleValue), sale_expires_at: expiresAt || null }
+    : { sale_type: null, sale_value: null, sale_expires_at: null };
+  const res = await safe("setProductSale", () => sb.from("products").update(patch).eq("id", productId).select().single(), { data: null, error: { message: "timeout" } });
+  if (res?.error) return { error: res.error.message };
+  return { product: normalizeProduct(res.data) };
+}
+
+async function validateDiscountCode(code, productId){
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) return { valid: false, error: "not_authenticated" };
+    const res = await sb.functions.invoke("validate-discount", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: { code: (code || "").trim().toUpperCase(), product_id: productId || null },
+    });
+    if (res.error) {
+      let msg = res.error.message;
+      try { if (res.error.context?.json) msg = (await res.error.context.json())?.error || msg; } catch {}
+      return { valid: false, error: msg };
+    }
+    return res.data;
+  } catch (err) {
+    return { valid: false, error: err?.message || "Erro ao validar cupom" };
+  }
+}
+
 Object.assign(window, {
   fetchProducts, fetchProductById, createProduct, updateProduct, deleteProduct,
   fetchUserPurchaseIds, fetchUserPendingPayments, cancelPendingPayment, fetchUserPurchases, fetchAllSales, fetchUsersCount,
@@ -517,5 +608,7 @@ Object.assign(window, {
   claimFreeProduct,
   fetchUserTickets, submitSupportTicket, fetchAllTickets, resolveTicket, deleteTicket,
   fetchTicketReplies, addTicketReply,
+  fetchDiscountCodes, createDiscountCode, updateDiscountCode, deleteDiscountCode,
+  setProductSale, validateDiscountCode,
   Q_TIMEOUT, queryWithTimeout, safe,
 });

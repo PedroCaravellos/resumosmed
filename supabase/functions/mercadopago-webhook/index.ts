@@ -274,14 +274,19 @@ async function processPaymentId(
 
   // Se algum produto não existe mais no banco, usa título/preço do pending_payment como fallback
   const dbMap = new Map((dbProducts || []).map(p => [p.id as string, p]));
+  const discountCode   = (updated.discount_code as string | null) ?? null;
+  const discountAmount = (updated.discount_amount as number) ?? 0;
+
   const rows = pendingItems.map(item => {
     const prod = dbMap.get(item.id);
     return {
-      user_id:       updated.user_id,
-      product_id:    item.id,
-      product_title: prod?.title ?? item.title,
-      price:         prod?.price ?? item.price,
+      user_id:         updated.user_id,
+      product_id:      item.id,
+      product_title:   prod?.title ?? item.title,
+      price:           prod?.price ?? item.price,
       method,
+      discount_code:   discountCode,
+      discount_amount: discountAmount,
     };
   });
 
@@ -296,7 +301,15 @@ async function processPaymentId(
     return false;
   }
 
-  log("info", "payment_confirmed", { external_ref: externalRef, user_id: updated.user_id, method, items_count: rows.length });
+  // Incrementa uses_count do cupom (se havia um)
+  if (discountCode) {
+    const { data: dcc } = await db.from("discount_codes").select("uses_count").eq("id", discountCode).single();
+    if (dcc) {
+      await db.from("discount_codes").update({ uses_count: ((dcc.uses_count as number) ?? 0) + 1 }).eq("id", discountCode);
+    }
+  }
+
+  log("info", "payment_confirmed", { external_ref: externalRef, user_id: updated.user_id, method, items_count: rows.length, discount_code: discountCode });
 
   // Email disparado pelo trigger fn_email_purchase_confirmed no banco (pending_payments UPDATE).
 
