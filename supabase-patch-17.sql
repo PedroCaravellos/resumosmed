@@ -37,7 +37,8 @@ ALTER TABLE pending_payments ADD COLUMN IF NOT EXISTS discount_code   TEXT    DE
 ALTER TABLE pending_payments ADD COLUMN IF NOT EXISTS discount_amount NUMERIC NOT NULL DEFAULT 0;
 
 -- Atualizar view sales_with_user para expor desconto
-CREATE OR REPLACE VIEW public.sales_with_user AS
+DROP VIEW IF EXISTS public.sales_with_user;
+CREATE VIEW public.sales_with_user AS
 SELECT
   pu.id,
   pu.user_id,
