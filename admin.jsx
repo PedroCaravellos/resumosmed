@@ -664,6 +664,7 @@ function AdminHistory(){
 
 function th(){ return { padding:"14px 18px", fontWeight: 600 }; }
 function td(){ return { padding:"14px 18px", verticalAlign:"middle" }; }
+function iStyle(){ return { padding:"11px 13px", borderRadius: 10, border:"1px solid var(--line-strong)", background:"var(--bg)", color:"var(--fg)", fontSize: 14, fontFamily:"inherit", outline:"none", boxSizing:"border-box" }; }
 
 // ─────────── Quiz Editor Modal ───────────
 function QuizEditorModal({ product, onClose, onSaved }){
