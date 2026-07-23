@@ -1921,7 +1921,7 @@ function AdminDiscounts(){
                   </select>
                 </div>
                 <div>
-                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"flex", alignItems:"center", marginBottom: 5}}>Valor *<Tip text="Quanto descontar. Se tipo for %, coloque 1–100 (ex: 20 = 20% off). Se for R$, o valor em reais (ex: 15 = R$ 15 off)."/></label>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"flex", alignItems:"center", marginBottom: 5}}>Valor *<Tip text="Depende do tipo escolhido: • Percentual → coloque só o número (ex: 20 significa 20% off — resumo de R$ 50 fica R$ 40). • Fixo → coloque o valor em reais (ex: 15 significa tirar R$ 15 — resumo de R$ 50 fica R$ 35)."/></label>
                   <input type="number" min="0.01" step="0.01" value={form.value} onChange={upd("value")} placeholder={form.type==="percent" ? "20" : "10.00"} style={{...iStyle(), width:"100%", boxSizing:"border-box"}} />
                 </div>
                 <div>
