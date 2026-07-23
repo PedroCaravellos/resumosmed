@@ -1953,14 +1953,14 @@ function AdminDiscounts(){
                             {c.type==="percent" ? `${c.value}%` : `R$ ${c.value}`}
                           </span>
                         </td>
-                        <td style={td()} className="mono" style={{fontSize: 12}}>
+                        <td style={{...td(), fontSize: 12}} className="mono">
                           {c.applies_to === "all" ? "Todos" : (products.find(p=>p.id===c.applies_to)?.title || c.applies_to)}
                         </td>
                         <td style={td()}>
                           <span style={{fontWeight: 600}}>{c.uses_count}</span>
                           {c.max_uses != null && <span style={{color:"var(--muted)"}}>/{c.max_uses}</span>}
                         </td>
-                        <td style={td()} className="mono" style={{fontSize: 12}}>
+                        <td style={{...td(), fontSize: 12}} className="mono">
                           {c.expires_at ? fmtDate(c.expires_at) : "Sem limite"}
                         </td>
                         <td style={td()}>
