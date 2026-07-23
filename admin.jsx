@@ -666,6 +666,45 @@ function th(){ return { padding:"14px 18px", fontWeight: 600 }; }
 function td(){ return { padding:"14px 18px", verticalAlign:"middle" }; }
 function iStyle(){ return { padding:"11px 13px", borderRadius: 10, border:"1px solid var(--line-strong)", background:"var(--bg)", color:"var(--fg)", fontSize: 14, fontFamily:"inherit", outline:"none", boxSizing:"border-box" }; }
 
+function Tip({ text }){
+  const [show, setShow] = useStateAdmin(false);
+  return (
+    <span style={{position:"relative", display:"inline-flex", verticalAlign:"middle", marginLeft: 5}}>
+      <span
+        onMouseEnter={()=>setShow(true)} onMouseLeave={()=>setShow(false)}
+        onFocus={()=>setShow(true)} onBlur={()=>setShow(false)}
+        tabIndex={0}
+        style={{
+          width: 15, height: 15, borderRadius: "50%",
+          background: "var(--line-strong)", color: "var(--muted)",
+          fontSize: 10, fontWeight: 700, display: "inline-flex",
+          alignItems: "center", justifyContent: "center",
+          cursor: "help", userSelect: "none", flexShrink: 0,
+        }}
+      >?</span>
+      {show && (
+        <span style={{
+          position: "absolute", bottom: "calc(100% + 7px)", left: "50%",
+          transform: "translateX(-50%)",
+          background: "var(--fg)", color: "var(--bg)",
+          fontSize: 12, lineHeight: 1.45, fontWeight: 400,
+          padding: "9px 13px", borderRadius: 9,
+          width: 230, whiteSpace: "normal",
+          zIndex: 300, pointerEvents: "none",
+          boxShadow: "0 6px 24px rgba(0,0,0,.25)",
+          textTransform: "none", letterSpacing: "normal",
+        }}>
+          {text}
+          <span style={{
+            position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)",
+            border: "5px solid transparent", borderTopColor: "var(--fg)",
+          }}/>
+        </span>
+      )}
+    </span>
+  );
+}
+
 // ─────────── Quiz Editor Modal ───────────
 function QuizEditorModal({ product, onClose, onSaved }){
   const [questions, setQuestions] = useStateAdmin(() => JSON.parse(JSON.stringify(product.quiz_json?.questions || [])));
@@ -1871,41 +1910,41 @@ function AdminDiscounts(){
             <form onSubmit={submit}>
               <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))", gap: 14, marginBottom: 14}}>
                 <div>
-                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Código *</label>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"flex", alignItems:"center", marginBottom: 5}}>Código *<Tip text="O código que o cliente digita no carrinho. Use letras maiúsculas sem espaço. Ex: MEDICINA20, BLACKFRIDAY50. Não pode ser alterado depois de criado."/></label>
                   <input value={form.id} onChange={e=>setForm(f=>({...f, id:e.target.value.toUpperCase()}))} disabled={!!editing} placeholder="EX: MEDICINA20" style={{...iStyle(), width:"100%", boxSizing:"border-box", fontFamily:"var(--font-mono)", textTransform:"uppercase"}} />
                 </div>
                 <div>
-                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Tipo</label>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"flex", alignItems:"center", marginBottom: 5}}>Tipo<Tip text="Percentual: desconta X% do valor. Fixo: desconta um valor em R$ independente do preço do produto."/></label>
                   <select value={form.type} onChange={upd("type")} style={{...iStyle(), width:"100%", boxSizing:"border-box"}}>
                     <option value="percent">Percentual (%)</option>
                     <option value="fixed">Fixo (R$)</option>
                   </select>
                 </div>
                 <div>
-                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Valor *</label>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"flex", alignItems:"center", marginBottom: 5}}>Valor *<Tip text="Quanto descontar. Se tipo for %, coloque 1–100 (ex: 20 = 20% off). Se for R$, o valor em reais (ex: 15 = R$ 15 off)."/></label>
                   <input type="number" min="0.01" step="0.01" value={form.value} onChange={upd("value")} placeholder={form.type==="percent" ? "20" : "10.00"} style={{...iStyle(), width:"100%", boxSizing:"border-box"}} />
                 </div>
                 <div>
-                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Aplica em</label>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"flex", alignItems:"center", marginBottom: 5}}>Aplica em<Tip text="Em quais produtos o cupom funciona. 'Todos os produtos' vale para qualquer item do carrinho. Ou escolha um resumo específico."/></label>
                   <select value={form.applies_to} onChange={upd("applies_to")} style={{...iStyle(), width:"100%", boxSizing:"border-box"}}>
                     <option value="all">Todos os produtos</option>
                     {products.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Máx. usos</label>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"flex", alignItems:"center", marginBottom: 5}}>Máx. usos<Tip text="Limite total de usos do código por todos os clientes. Ex: 50 = só as 50 primeiras pessoas conseguem usar. Se deixar em branco, não tem limite."/></label>
                   <input type="number" min="1" step="1" value={form.max_uses} onChange={upd("max_uses")} placeholder="Ilimitado" style={{...iStyle(), width:"100%", boxSizing:"border-box"}} />
                 </div>
                 <div>
-                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Início</label>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"flex", alignItems:"center", marginBottom: 5}}>Início<Tip text="Data a partir da qual o cupom começa a funcionar. Se deixar em branco, o cupom já vale imediatamente após ser criado."/></label>
                   <input type="datetime-local" value={form.starts_at} onChange={upd("starts_at")} style={{...iStyle(), width:"100%", boxSizing:"border-box"}} />
                 </div>
                 <div>
-                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Expiração</label>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"flex", alignItems:"center", marginBottom: 5}}>Expiração<Tip text="Data limite para usar o cupom. Após essa data, o código para de funcionar automaticamente. Se deixar em branco, o cupom não expira."/></label>
                   <input type="datetime-local" value={form.expires_at} onChange={upd("expires_at")} style={{...iStyle(), width:"100%", boxSizing:"border-box"}} />
                 </div>
                 <div>
-                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"block", marginBottom: 5}}>Descrição interna</label>
+                  <label style={{fontSize: 12, fontWeight: 600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:".06em", display:"flex", alignItems:"center", marginBottom: 5}}>Descrição interna<Tip text="Anotação só pra você. Não aparece para o cliente. Útil para lembrar o objetivo do cupom. Ex: 'Parceria com fulano', 'Black Friday 2026'."/></label>
                   <input value={form.description} onChange={upd("description")} placeholder="Para referência" style={{...iStyle(), width:"100%", boxSizing:"border-box"}} />
                 </div>
               </div>
