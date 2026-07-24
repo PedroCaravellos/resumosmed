@@ -2043,6 +2043,141 @@ function PrivacyPage({ go }){
 }
 
 // ─────────────────────────────────────────────────────────
+//  PLANOS — Assinatura recorrente
+// ─────────────────────────────────────────────────────────
+function Planos({ go, currentUser }){
+  const [loading, setLoading] = useStateP(false);
+  const [err, setErr] = useStateP("");
+  const [sub, setSub] = useStateP(null);
+  const [subLoading, setSubLoading] = useStateP(true);
+
+  useEffectP(() => {
+    if (!currentUser) { setSubLoading(false); return; }
+    fetchUserSubscription(currentUser.id).then(s => { setSub(s); setSubLoading(false); });
+  }, [currentUser?.id]);
+
+  const isActive = sub?.status === "authorized" && sub?.current_period_end && new Date(sub.current_period_end) > new Date();
+
+  async function handleSubscribe(){
+    if (!currentUser){
+      go({ name: "auth", params: { next: "planos" } });
+      return;
+    }
+    setErr(""); setLoading(true);
+    const backUrl = window.location.origin + "/biblioteca";
+    const res = await createSubscription("monthly", backUrl);
+    setLoading(false);
+    if (res.error){ setErr(res.error); return; }
+    if (res.checkoutUrl) window.location.href = res.checkoutUrl;
+  }
+
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : "";
+
+  const featItems = [
+    "Acesso a todos os resumos disponíveis",
+    "Novos resumos incluídos automaticamente",
+    "Leitor protegido com acesso ilimitado",
+    "Cancele quando quiser — acesso até o fim do período",
+    "Compras individuais continuam funcionando normalmente",
+  ];
+
+  const card = {
+    background: "var(--surface)",
+    border: "2px solid var(--primary)",
+    borderRadius: "var(--radius-lg)",
+    padding: "32px 28px",
+    maxWidth: 420,
+    margin: "0 auto",
+    boxShadow: "0 8px 32px rgba(0,0,0,.07)",
+  };
+
+  return (
+    <div className="pagewrap page" style={{ paddingTop: 60, paddingBottom: 80 }}>
+      <div style={{ maxWidth: 680, margin: "0 auto", textAlign: "center", paddingBottom: 40 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", textTransform: "uppercase", letterSpacing: ".1em", marginBottom: 14 }}>
+          Assinatura
+        </div>
+        <h1 className="display" style={{ fontSize: "clamp(28px,5vw,44px)", fontWeight: 800, lineHeight: 1.15, marginBottom: 16 }}>
+          Acesse tudo por um preço fixo por mês
+        </h1>
+        <p style={{ color: "var(--muted)", fontSize: 17, lineHeight: 1.7, maxWidth: 520, margin: "0 auto" }}>
+          Em vez de comprar resumo por resumo, assine e leia todos — incluindo os que chegarem depois.
+        </p>
+      </div>
+
+      <div style={card}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 6, marginBottom: 6 }}>
+          <span style={{ fontSize: 44, fontWeight: 800, color: "var(--fg)", lineHeight: 1 }}>R$ 49</span>
+          <span style={{ color: "var(--muted)", fontSize: 15 }}>/mês</span>
+        </div>
+        <div style={{ color: "var(--muted)", fontSize: 13, textAlign: "center", marginBottom: 28 }}>
+          Cobrado mensalmente · cancele a qualquer hora
+        </div>
+
+        <ul style={{ listStyle: "none", padding: 0, margin: "0 0 28px", display: "flex", flexDirection: "column", gap: 11 }}>
+          {featItems.map((f, i) => (
+            <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "var(--fg)", lineHeight: 1.5 }}>
+              <span style={{ color: "var(--acc-2)", fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
+              {f}
+            </li>
+          ))}
+        </ul>
+
+        {subLoading ? (
+          <div style={{ textAlign: "center", color: "var(--muted)", fontSize: 14, padding: "12px 0" }}>Carregando…</div>
+        ) : isActive ? (
+          <div>
+            <div style={{ background: "color-mix(in srgb, var(--acc-2) 12%, transparent)", border: "1px solid var(--acc-2)", borderRadius: "var(--radius-md)", padding: "14px 18px", marginBottom: 16, textAlign: "center" }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "var(--fg)", marginBottom: 4 }}>Assinatura ativa</div>
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>Acesso garantido até {fmtDate(sub.current_period_end)}</div>
+            </div>
+            <button className="btn" style={{ width: "100%" }} onClick={() => go({ name: "library" })}>
+              Ir para a biblioteca
+            </button>
+          </div>
+        ) : sub?.status === "pending" ? (
+          <div>
+            <div style={{ background: "color-mix(in srgb, var(--acc-1) 15%, transparent)", border: "1px solid var(--acc-1)", borderRadius: "var(--radius-md)", padding: "14px 18px", marginBottom: 16, textAlign: "center", fontSize: 13, color: "var(--muted)" }}>
+              Pagamento pendente. Se já assinou, aguarde alguns minutos para a confirmação.
+            </div>
+            <button className="btn secondary" style={{ width: "100%" }} onClick={() => go({ name: "library" })}>
+              Ir para a biblioteca
+            </button>
+          </div>
+        ) : (
+          <div>
+            {err && <div style={{ color: "#e05", fontSize: 13, marginBottom: 12, textAlign: "center" }}>{err}</div>}
+            <button className="btn primary" style={{ width: "100%", fontSize: 16, padding: "14px 0" }}
+              disabled={loading} onClick={handleSubscribe}>
+              {loading ? "Aguarde…" : currentUser ? "Assinar por R$ 49/mês" : "Entrar para assinar"}
+            </button>
+            <div style={{ fontSize: 11, color: "var(--muted)", textAlign: "center", marginTop: 10 }}>
+              Pagamento seguro via Mercado Pago
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ maxWidth: 520, margin: "48px auto 0", padding: "0 16px" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", textAlign: "center", marginBottom: 16, textTransform: "uppercase", letterSpacing: ".08em" }}>
+          Perguntas frequentes
+        </div>
+        {[
+          ["O que acontece se eu cancelar?", "Você mantém acesso a tudo até o final do período já pago. Não cobramos mais nada depois disso."],
+          ["Quem já comprou resumos individualmente perde o acesso?", "Não. Compras avulsas são vitalícias e continuam funcionando normalmente, independente da assinatura."],
+          ["Com quantos resumos tenho acesso?", "Todos os resumos disponíveis no catálogo, incluindo os que forem adicionados enquanto sua assinatura estiver ativa."],
+        ].map(([q, a], i) => (
+          <div key={i} style={{ borderTop: "1px solid var(--line)", padding: "16px 0" }}>
+            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>{q}</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.65 }}>{a}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
 //  404
 // ─────────────────────────────────────────────────────────
 function NotFound({ go }){

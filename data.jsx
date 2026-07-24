@@ -626,6 +626,59 @@ async function validateDiscountCode(code, productId){
   }
 }
 
+// ─────────── Assinaturas ───────────
+async function createSubscription(plan = "monthly", backUrl){
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) return { error: "Não autenticado" };
+    const res = await fetch(`${window.SUPABASE_URL}/functions/v1/create-mp-subscription`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ plan, back_url: backUrl }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: body?.error || "Falha ao criar assinatura." };
+    return body;
+  } catch (err) {
+    return { error: err?.message || "Erro ao conectar com o servidor." };
+  }
+}
+
+async function fetchUserSubscription(userId){
+  if (!userId) return null;
+  const res = await safe("fetchUserSubscription", () => sb
+    .from("subscriptions")
+    .select("id, plan, status, current_period_end, cancelled_at, created_at, mp_preapproval_id")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle(),
+    { data: null, error: null }
+  );
+  return res?.data || null;
+}
+
+async function hasActiveSubscription(userId){
+  const sub = await fetchUserSubscription(userId);
+  if (!sub) return false;
+  if (sub.status !== "authorized") return false;
+  if (!sub.current_period_end) return false;
+  return new Date(sub.current_period_end) > new Date();
+}
+
+async function fetchAllSubscriptions(){
+  const res = await safe("fetchAllSubscriptions", () => sb
+    .from("subscriptions")
+    .select("id, user_id, plan, status, current_period_end, cancelled_at, created_at, mp_preapproval_id")
+    .order("created_at", { ascending: false }),
+    { data: [], error: null }
+  );
+  return res?.data || [];
+}
+
 Object.assign(window, {
   fetchProducts, fetchProductById, createProduct, updateProduct, deleteProduct,
   fetchUserPurchaseIds, fetchUserPendingPayments, cancelPendingPayment, fetchUserPurchases, fetchAllSales, fetchUsersCount,
@@ -639,5 +692,6 @@ Object.assign(window, {
   fetchTicketReplies, addTicketReply,
   fetchDiscountCodes, createDiscountCode, updateDiscountCode, deleteDiscountCode,
   setProductSale, validateDiscountCode,
+  createSubscription, fetchUserSubscription, hasActiveSubscription, fetchAllSubscriptions,
   Q_TIMEOUT, queryWithTimeout, safe,
 });

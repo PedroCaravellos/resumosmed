@@ -20,13 +20,15 @@ function MyLibrary({ go, currentUser }){
   const isAdmin = currentUser.role === "admin";
   const [products, setProducts] = useStateLib([]);
   const [purchases, setPurchases] = useStateLib([]);
+  const [subscription, setSubscription] = useStateLib(null);
   const [loading, setLoading] = useStateLib(true);
 
   useEffectLib(()=>{
     let mounted = true;
-    const finish = (p, pu) => {
+    const finish = (p, pu, sub) => {
       if (!mounted) return;
       setProducts(p || []);
+      setSubscription(sub || null);
       if (pu){
         const map = new Map();
         pu.forEach(x => { if (!map.has(x.product_id)) map.set(x.product_id, x); });
@@ -38,18 +40,24 @@ function MyLibrary({ go, currentUser }){
     };
     if (isAdmin){
       fetchProducts()
-        .then(p => finish(p, null))
+        .then(p => finish(p, null, null))
         .catch(err => { console.error("[library/admin]", err); if (mounted) setLoading(false); });
     } else {
-      Promise.all([fetchProducts(), fetchUserPurchases(currentUser.id)])
-        .then(([p, pu]) => finish(p, pu))
+      Promise.all([fetchProducts(), fetchUserPurchases(currentUser.id), fetchUserSubscription(currentUser.id)])
+        .then(([p, pu, sub]) => finish(p, pu, sub))
         .catch(err => { console.error("[library/user]", err); if (mounted) setLoading(false); });
     }
     return ()=>{ mounted = false; };
   }, [currentUser.id, isAdmin]);
 
+  const isSubscriber = !isAdmin && subscription?.status === "authorized"
+    && subscription?.current_period_end
+    && new Date(subscription.current_period_end) > new Date();
+
   const owned = isAdmin
     ? products.map(p => ({ ...p, purchasedAt: p.created_at, paidPrice: p.price, _adminItem: true }))
+    : isSubscriber
+    ? products.map(p => ({ ...p, purchasedAt: subscription.created_at, paidPrice: 0, _subscriber: true }))
     : purchases.map(p => {
         const prod = products.find(x => x.id === p.product_id);
         return prod ? { ...prod, purchasedAt: p.created_at, paidPrice: p.price } : null;
@@ -74,10 +82,18 @@ function MyLibrary({ go, currentUser }){
             <p style={{color:"var(--muted)", fontSize: 16, marginTop: 10}}>
               {isAdmin
                 ? `${owned.length} resumos publicados. Clique em qualquer um pra abrir no leitor e revisar.`
+                : isSubscriber
+                ? `Assinante · ${owned.length} ${owned.length===1?"resumo disponível":"resumos disponíveis"}.`
                 : (owned.length === 0 ? "Você ainda não comprou nenhum resumo." : `${owned.length} ${owned.length===1?"resumo seu":"resumos seus"}, acesso vitalício.`)}
             </p>
+            {isSubscriber && subscription?.current_period_end && (
+              <div style={{fontSize: 12, color:"var(--muted)", marginTop: 4}}>
+                Acesso garantido até {new Date(subscription.current_period_end).toLocaleDateString("pt-BR", {day:"2-digit", month:"long", year:"numeric"})}
+              </div>
+            )}
           </div>
-          {!isAdmin && <button className="btn" onClick={()=>go({name:"catalog"})}>+ Comprar mais resumos</button>}
+          {!isAdmin && !isSubscriber && <button className="btn" onClick={()=>go({name:"catalog"})}>+ Comprar mais resumos</button>}
+          {!isAdmin && isSubscriber && <button className="btn" onClick={()=>go({name:"planos"})}>Ver assinatura</button>}
           {isAdmin && <button className="btn" onClick={()=>go({name:"admin"})}>Voltar ao painel</button>}
         </div>
       </section>
