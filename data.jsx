@@ -35,7 +35,30 @@ async function safe(label, fn, fallback){
 }
 
 // ─────────── Products ───────────
+const _PRODUCTS_CACHE_KEY = "rmed_products_v1";
+const _PRODUCTS_CACHE_TTL = 5 * 60 * 1000; // 5min
+
+function _getProductsCache(){
+  try {
+    const raw = localStorage.getItem(_PRODUCTS_CACHE_KEY);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > _PRODUCTS_CACHE_TTL) return null;
+    return data;
+  } catch { return null; }
+}
+
+function _setProductsCache(data){
+  try { localStorage.setItem(_PRODUCTS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
+}
+
+function _clearProductsCache(){
+  try { localStorage.removeItem(_PRODUCTS_CACHE_KEY); } catch {}
+}
+
 async function fetchProducts(){
+  const cached = _getProductsCache();
+  if (cached) return cached;
   const res = await safe("fetchProducts", () => sb
     .from("products")
     .select("id,title,area,price,pages,topics,updated,file_path,file_name,created_at,preview,active,quiz_json,sale_type,sale_value,sale_expires_at")
@@ -44,7 +67,9 @@ async function fetchProducts(){
     { data: [], error: null }
   );
   if (res?.error){ console.warn("[fetchProducts]", res.error); return []; }
-  return (res?.data || []).map(normalizeProduct);
+  const products = (res?.data || []).map(normalizeProduct);
+  _setProductsCache(products);
+  return products;
 }
 
 async function fetchProductById(id){
@@ -99,6 +124,7 @@ async function createProduct(p){
     if (file_path) { try { await sb.storage.from("resumos").remove([file_path]); } catch {} }
     return { error: res.error.message };
   }
+  _clearProductsCache();
   return { product: normalizeProduct(res.data) };
 }
 
@@ -111,6 +137,7 @@ async function deleteProduct(id){
   );
   if (res?.error) return { error: res.error.message };
   if (!res?.data?.length) return { error: "Sem permissão. Verifique a RLS policy de UPDATE na tabela products." };
+  _clearProductsCache();
   return { ok: true };
 }
 
@@ -158,6 +185,7 @@ async function updateProduct(id, updates, newFile){
 
   const res = await safe("updateProduct", () => sb.from("products").update(patch).eq("id", id).select().single(), { data: null, error: { message: "timeout" } });
   if (res?.error) return { error: res.error.message };
+  _clearProductsCache();
   return { product: normalizeProduct(res.data) };
 }
 
@@ -575,6 +603,7 @@ async function setProductSale(productId, saleType, saleValue, expiresAt){
     : { sale_type: null, sale_value: null, sale_expires_at: null };
   const res = await safe("setProductSale", () => sb.from("products").update(patch).eq("id", productId).select().single(), { data: null, error: { message: "timeout" } });
   if (res?.error) return { error: res.error.message };
+  _clearProductsCache();
   return { product: normalizeProduct(res.data) };
 }
 

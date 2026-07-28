@@ -349,7 +349,10 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
     }).catch(err => {
       if (cancelled) return;
       console.error("[pdf]", err);
-      if (window.Sentry) window.Sentry.captureException(err, { tags: { flow: "pdf-load" }, extra: { product_id: r?.id } });
+      // UnknownErrorException ocorre quando o worker do PDF.js é destruído pelo
+      // browser (memória, aba em background, iOS) — não é bug no código.
+      const isWorkerCrash = err?.name === "UnknownErrorException" || err?.message?.includes("sendWithPromise");
+      if (window.Sentry && !isWorkerCrash) window.Sentry.captureException(err, { tags: { flow: "pdf-load" }, extra: { product_id: r?.id } });
       setPdfError("Não foi possível carregar o PDF. Tente novamente.");
       setPdfLoading(false);
     });
@@ -425,7 +428,8 @@ function ReaderInner({ r, go, currentUser, signedUrl, isAdmin }){
         // Reset scroll ao trocar de página
         if (frame && !cancelled) frame.scrollTop = 0;
       } catch (err) {
-        if (err?.name !== "RenderingCancelledException") {
+        const isExpected = err?.name === "RenderingCancelledException" || err?.message?.includes("sendWithPromise");
+        if (!isExpected) {
           console.error("[pdf render]", err);
           if (window.Sentry) window.Sentry.captureException(err, { tags: { flow: "pdf-render" }, extra: { product_id: r?.id, page } });
         }
