@@ -110,19 +110,34 @@ Deno.serve(async (req) => {
       notification_url: `${supabaseUrl}/functions/v1/mp-subscription-webhook`,
     };
 
-    const mpRes = await fetch(`${MP_API}/preapproval`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(mpPayload),
-    });
+    let mpRes: Response;
+    try {
+      mpRes = await fetch(`${MP_API}/preapproval`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(mpPayload),
+      });
+    } catch (fetchErr: unknown) {
+      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+      console.error("MP fetch error", msg);
+      return json({ error: `Erro de rede ao contatar MP: ${msg}` }, 502);
+    }
 
-    const mpBody = await mpRes.json();
+    let mpBody: Record<string, unknown>;
+    try {
+      mpBody = await mpRes.json();
+    } catch {
+      const rawText = await mpRes.text().catch(() => "");
+      console.error("MP non-JSON response", mpRes.status, rawText.slice(0, 500));
+      return json({ error: `MP retornou resposta inválida (${mpRes.status}): ${rawText.slice(0, 200)}` }, 502);
+    }
+
     if (!mpRes.ok || !mpBody.id) {
       console.error("MP preapproval error", mpRes.status, mpBody);
-      return json({ error: "Falha ao criar assinatura. Tente novamente." }, 502);
+      return json({ error: `MP erro ${mpRes.status}: ${JSON.stringify(mpBody)}` }, 502);
     }
 
     // Cria ou atualiza registro de assinatura pendente
