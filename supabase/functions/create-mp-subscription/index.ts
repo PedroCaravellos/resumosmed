@@ -9,13 +9,20 @@ const ALLOWED_ORIGINS = [
   "https://www.resumosmed.com.br",
 ];
 
+function isAllowedOrigin(origin: string): boolean {
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  // Permite previews do Vercel durante testes
+  try { const u = new URL(origin); return u.hostname.endsWith(".vercel.app") && u.hostname.includes("resumosmed"); } catch { return false; }
+}
+
 const PLANS: Record<string, { label: string; amount: number; frequency: number; frequency_type: string }> = {
-  monthly: { label: "Plano Mensal – Resumos Medicina", amount: 49, frequency: 1, frequency_type: "months" },
+  monthly: { label: "Plano Mensal – Resumos Medicina", amount: 1,  frequency: 1, frequency_type: "months" },
+  annual:  { label: "Plano Anual – Resumos Medicina",  amount: 1,  frequency: 1, frequency_type: "months" },
 };
 
 Deno.serve(async (req) => {
   const origin = req.headers.get("origin") ?? "";
-  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const allowOrigin = isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0];
 
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), {
@@ -38,9 +45,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Usa token de teste — quando for pra produção, trocar para MERCADOPAGO_ACCESS_TOKEN
-    const accessToken = Deno.env.get("MERCADOPAGO_TEST_ACCESS_TOKEN")
-      ?? Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
+    const accessToken = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")
+      ?? Deno.env.get("MERCADOPAGO_TEST_ACCESS_TOKEN");
     if (!accessToken) return json({ error: "Configuração interna inválida" }, 500);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -79,16 +85,14 @@ Deno.serve(async (req) => {
 
     const payerEmail = profile?.email ?? user.email ?? "";
 
-    const ALLOWED_BACK_HOSTS = [
-      "resumosmed.com", "resumosmed.com.br",
-      "www.resumosmed.com", "www.resumosmed.com.br",
-    ];
     const safeBackUrl = (() => {
       try {
         const u = new URL(back_url || "");
-        if (u.protocol === "https:" && ALLOWED_BACK_HOSTS.includes(u.hostname)) return u.href;
+        const isProduction = ["resumosmed.com","resumosmed.com.br","www.resumosmed.com","www.resumosmed.com.br"].includes(u.hostname);
+        const isPreview = u.hostname.endsWith(".vercel.app") && u.hostname.includes("resumosmed");
+        if (u.protocol === "https:" && (isProduction || isPreview)) return u.href;
       } catch { /* invalid URL */ }
-      return "https://resumosmed.com/biblioteca";
+      return "https://resumosmed.com";
     })();
 
     // Cria preapproval no Mercado Pago
