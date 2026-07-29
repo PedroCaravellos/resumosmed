@@ -636,6 +636,7 @@ async function createSubscription(plan = "monthly", backUrl){
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${session.access_token}`,
+        "apikey": window.SUPABASE_ANON_KEY,
       },
       body: JSON.stringify({ plan, back_url: backUrl }),
     });

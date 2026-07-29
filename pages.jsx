@@ -2084,8 +2084,8 @@ function Planos({ go, currentUser, initialPlan }){
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : "";
 
   const PLANS = {
-    monthly: { label: "Mensal", price: 49, billing: "Cobrado mensalmente", saving: null },
-    annual:  { label: "Anual",  price: 39, billing: "R$ 468 cobrado uma vez por ano", saving: "Economize R$ 120/ano" },
+    monthly: { label: "Mensal", price: 1, billing: "Cobrado mensalmente (teste)", saving: null },
+    annual:  { label: "Anual",  price: 1, billing: "R$ 12 cobrado uma vez por ano (teste)", saving: null },
   };
   const selected = PLANS[plan];
 
@@ -2103,7 +2103,7 @@ function Planos({ go, currentUser, initialPlan }){
     const backUrl = window.location.origin + "?payment_return=1";
     const res = await createSubscription(plan, backUrl);
     setLoading(false);
-    if (res.error){ setErr("Não foi possível iniciar a assinatura. Tente novamente."); return; }
+    if (res.error){ setErr(res.error); return; }
     if (res.checkoutUrl) window.location.href = res.checkoutUrl;
   }
 
@@ -2191,7 +2191,7 @@ function Planos({ go, currentUser, initialPlan }){
             <div style={{ borderTop: "1px solid var(--line)", paddingTop: 16, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
               <span style={{ fontWeight: 600 }}>Total</span>
               <span className="display" style={{ fontSize: 26, fontWeight: 700, color: "var(--primary)" }}>
-                R$ {plan === "annual" ? "468" : "49"}<span style={{ fontSize: 13, fontWeight: 400, color: "var(--muted)" }}>{plan === "annual" ? "/ano" : "/mês"}</span>
+                R$ {plan === "annual" ? "12" : "1"}<span style={{ fontSize: 13, fontWeight: 400, color: "var(--muted)" }}>{plan === "annual" ? "/ano" : "/mês"}</span>
               </span>
             </div>
 
