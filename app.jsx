@@ -189,7 +189,7 @@ function App(){
     case "reset-password": page = <ResetPassword go={go} onAuth={handleAuth}/>; break;
     case "admin":       page = <AdminDashboard go={go} currentUser={currentUser} onLogout={handleLogout}/>; break;
     case "library":     page = <MyLibrary go={go} currentUser={currentUser}/>; break;
-    case "planos":      page = <Planos go={go} currentUser={currentUser}/>; break;
+    case "planos":      page = <Planos go={go} currentUser={currentUser} initialPlan={route.plan}/>; break;
     case "payment-return": page = <PaymentReturn go={go} clearCart={clearCart} refreshUser={refreshUser} currentUser={currentUser} cart={cart}/>; break;
     case "reader":      page = <PdfReader id={route.id} go={go} currentUser={currentUser}/>; break;
     case "profile":     page = <AccountSettings go={go} currentUser={currentUser} refreshUser={refreshUser}/>; break;

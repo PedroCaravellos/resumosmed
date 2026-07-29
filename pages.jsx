@@ -474,29 +474,48 @@ function Areas({ go }){
 }
 
 
-// ─────────── Pricing ───────────
+// ─────────── Pricing / Assinatura ───────────
 function Pricing({ go }){
+  const feats = [
+    "Acesso a todos os resumos disponíveis",
+    "Novos resumos incluídos automaticamente",
+    "Leitor protegido em qualquer dispositivo",
+    "Cancele quando quiser",
+  ];
   return (
     <section className="page" style={{paddingBottom:"var(--gap-xl)"}}>
-      <SectionHead eyebrow="Preço" title={["Compre 1, compre 5,","compre o pack."]}/>
-      <div data-reveal-stagger className="pricing-grid" style={{display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap: 16, marginTop: "var(--gap-lg)"}}>
-        {[
-          { name:"Avulso", price:"R$ 10–59", desc:"Compre só o resumo que precisa. Sem assinatura, sem pegadinha.", btn:"Ver resumos", action:()=>go({name:"catalog"}), feats:["1 resumo em PDF", "Acesso vitalício", "Atualizações grátis", "Garantia de 7 dias"], soon: false },
-          { name:"Pack por área", price:"Em breve", desc:"Todos os resumos de uma área (Cardio, Neuro, etc). Economize 35%.", btn:"Em breve", action: null, feats:["Todos os resumos da área", "Bônus: mapa mental", "Acesso vitalício", "Atualizações grátis"], highlight: true, soon: true },
-          { name:"Combo completo", price:"Em breve", desc:"Todos os resumos do catálogo. Tudo, atualizado, pronto pros 6 anos.", btn:"Em breve", action: null, feats:["Catálogo completo", "Atualizações vitalícias", "Bônus: flashcards de revisão", "Suporte direto comigo"], soon: true },
-        ].map((p, i)=>(
-          <div key={i} className="card" style={{padding: 26, display:"flex", flexDirection:"column", gap: 14, position:"relative", border: p.highlight ? "2px solid var(--primary)" : undefined, opacity: p.soon ? .65 : 1}}>
-            {p.highlight && !p.soon && <div style={{position:"absolute", top:-10, left: 22, background:"var(--primary)", color:"var(--primary-ink)", padding:"3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing:".05em"}}>MAIS POPULAR</div>}
-            {p.soon && <div style={{position:"absolute", top:-10, left: 22, background:"var(--fg)", color:"var(--bg)", padding:"3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing:".05em"}}>EM BREVE</div>}
-            <div className="display" style={{fontSize: 22, fontWeight: 700}}>{p.name}</div>
-            <div className={"display pricing-price"} style={{fontSize: p.soon ? 24 : 40, fontWeight: 700, color: p.soon ? "var(--muted)" : "var(--primary)", lineHeight: 1}}>{p.price}</div>
-            <div style={{color:"var(--muted)", fontSize: 14, lineHeight: 1.5}}>{p.desc}</div>
-            <ul style={{listStyle:"none", padding: 0, margin:"10px 0", display:"flex", flexDirection:"column", gap: 8, fontSize: 14}}>
-              {p.feats.map(f=><li key={f} className="row" style={{gap: 8}}><span style={{color:"var(--acc-2)", fontWeight: 700}}>✓</span>{f}</li>)}
-            </ul>
-            <button disabled={p.soon} onClick={p.action || undefined} className={"btn " + (p.highlight && !p.soon ? "primary" : "")} style={{justifyContent:"center", marginTop:"auto", cursor: p.soon ? "default" : "pointer"}}>{p.btn}</button>
+      <SectionHead eyebrow="Assinatura" title={["Acesse tudo por","um preço fixo."]}/>
+      <div data-reveal-stagger className="pricing-grid" style={{display:"grid", gridTemplateColumns:"repeat(2, 1fr)", gap: 16, marginTop: "var(--gap-lg)", maxWidth: 760, margin: "var(--gap-lg) auto 0"}}>
+
+        {/* Mensal */}
+        <div className="card" style={{padding: 28, display:"flex", flexDirection:"column", gap: 14, position:"relative"}}>
+          <div className="display" style={{fontSize: 20, fontWeight: 700}}>Mensal</div>
+          <div style={{display:"flex", alignItems:"baseline", gap: 6}}>
+            <span className="display" style={{fontSize: 42, fontWeight: 800, color:"var(--primary)", lineHeight: 1}}>R$ 49</span>
+            <span style={{color:"var(--muted)", fontSize: 14}}>/mês</span>
           </div>
-        ))}
+          <div style={{color:"var(--muted)", fontSize: 13, marginTop: -6}}>Cobrado mensalmente</div>
+          <ul style={{listStyle:"none", padding: 0, margin:"6px 0", display:"flex", flexDirection:"column", gap: 9, fontSize: 14}}>
+            {feats.map(f=><li key={f} className="row" style={{gap: 8}}><span style={{color:"var(--acc-2)", fontWeight: 700}}>✓</span>{f}</li>)}
+          </ul>
+          <button className="btn" style={{justifyContent:"center", marginTop:"auto"}} onClick={()=>go({name:"planos", plan:"monthly"})}>Assinar agora</button>
+        </div>
+
+        {/* Anual */}
+        <div className="card" style={{padding: 28, display:"flex", flexDirection:"column", gap: 14, position:"relative", border:"2px solid var(--primary)"}}>
+          <div style={{position:"absolute", top:-11, left: 22, background:"var(--primary)", color:"var(--primary-ink)", padding:"3px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing:".05em"}}>MAIS ECONÔMICO</div>
+          <div className="display" style={{fontSize: 20, fontWeight: 700}}>Anual</div>
+          <div style={{display:"flex", alignItems:"baseline", gap: 6}}>
+            <span className="display" style={{fontSize: 42, fontWeight: 800, color:"var(--primary)", lineHeight: 1}}>R$ 39</span>
+            <span style={{color:"var(--muted)", fontSize: 14}}>/mês</span>
+          </div>
+          <div style={{color:"var(--muted)", fontSize: 13, marginTop: -6}}>R$ 468 cobrado uma vez por ano · economize R$ 120</div>
+          <ul style={{listStyle:"none", padding: 0, margin:"6px 0", display:"flex", flexDirection:"column", gap: 9, fontSize: 14}}>
+            {feats.map(f=><li key={f} className="row" style={{gap: 8}}><span style={{color:"var(--acc-2)", fontWeight: 700}}>✓</span>{f}</li>)}
+          </ul>
+          <button className="btn primary" style={{justifyContent:"center", marginTop:"auto"}} onClick={()=>go({name:"planos", plan:"annual"})}>Assinar agora</button>
+        </div>
+
       </div>
     </section>
   );
@@ -2045,7 +2064,8 @@ function PrivacyPage({ go }){
 // ─────────────────────────────────────────────────────────
 //  PLANOS — Assinatura recorrente
 // ─────────────────────────────────────────────────────────
-function Planos({ go, currentUser }){
+function Planos({ go, currentUser, initialPlan }){
+  const [plan, setPlan] = useStateP(initialPlan === "annual" ? "annual" : "monthly");
   const [loading, setLoading] = useStateP(false);
   const [err, setErr] = useStateP("");
   const [sub, setSub] = useStateP(null);
@@ -2060,12 +2080,12 @@ function Planos({ go, currentUser }){
 
   async function handleSubscribe(){
     if (!currentUser){
-      go({ name: "auth", params: { next: "planos" } });
+      go({ name: "login" });
       return;
     }
     setErr(""); setLoading(true);
     const backUrl = window.location.origin + "/biblioteca";
-    const res = await createSubscription("monthly", backUrl);
+    const res = await createSubscription(plan, backUrl);
     setLoading(false);
     if (res.error){ setErr(res.error); return; }
     if (res.checkoutUrl) window.location.href = res.checkoutUrl;
