@@ -16,8 +16,8 @@ function isAllowedOrigin(origin: string): boolean {
 }
 
 const PLANS: Record<string, { label: string; amount: number; frequency: number; frequency_type: string }> = {
-  monthly: { label: "Plano Mensal – Resumos Medicina", amount: 49,   frequency: 1,  frequency_type: "months" },
-  annual:  { label: "Plano Anual – Resumos Medicina",  amount: 39,   frequency: 1,  frequency_type: "months" },
+  monthly: { label: "Plano Mensal – Resumos Medicina", amount: 10,   frequency: 1,  frequency_type: "months" },
+  annual:  { label: "Plano Anual – Resumos Medicina",  amount: 10,   frequency: 1,  frequency_type: "months" },
 };
 
 Deno.serve(async (req) => {
