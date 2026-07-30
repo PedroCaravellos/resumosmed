@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
     })();
 
     // Cria preapproval no Mercado Pago
+    const [firstName, ...rest] = (profile?.name ?? "").split(" ");
     const mpPayload = {
       reason: planConfig.label,
       auto_recurring: {
@@ -109,6 +110,20 @@ Deno.serve(async (req) => {
       payer_email: payerEmail,
       status: "pending",
       notification_url: `${supabaseUrl}/functions/v1/mp-subscription-webhook`,
+      additional_info: {
+        items: [{
+          id: plan,
+          title: planConfig.label,
+          category_id: "services",
+          unit_price: planConfig.amount,
+          quantity: 1,
+        }],
+        payer: {
+          first_name: firstName ?? "",
+          last_name: rest.join(" ") ?? "",
+          email: payerEmail,
+        },
+      },
     };
 
     const mpHeaders: Record<string, string> = {
@@ -160,7 +175,10 @@ Deno.serve(async (req) => {
     }
 
     // Em sandbox, usar sandbox_init_point; em produção, init_point
-    const checkoutUrl = mpBody.init_point ?? mpBody.sandbox_init_point;
+    const isTest = accessToken.startsWith("TEST-");
+    const checkoutUrl = isTest
+      ? (mpBody.sandbox_init_point ?? mpBody.init_point)
+      : (mpBody.init_point ?? mpBody.sandbox_init_point);
     return json({ checkoutUrl, preapprovalId: mpBody.id });
   } catch (err) {
     console.error("create-mp-subscription unhandled", err);
