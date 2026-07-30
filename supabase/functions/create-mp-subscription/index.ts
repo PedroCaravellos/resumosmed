@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authError } = await db.auth.getUser(token);
     if (authError || !user) return json({ error: "Sessão inválida" }, 401);
 
-    const { plan = "monthly", back_url } = await req.json();
+    const { plan = "monthly", back_url, device_id } = await req.json();
     const planConfig = PLANS[plan];
     if (!planConfig) return json({ error: "Plano inválido" }, 400);
 
@@ -111,14 +111,17 @@ Deno.serve(async (req) => {
       notification_url: `${supabaseUrl}/functions/v1/mp-subscription-webhook`,
     };
 
+    const mpHeaders: Record<string, string> = {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    };
+    if (device_id) mpHeaders["X-meli-session-id"] = device_id;
+
     let mpRes: Response;
     try {
       mpRes = await fetch(`${MP_API}/preapproval`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
+        headers: mpHeaders,
         body: JSON.stringify(mpPayload),
       });
     } catch (fetchErr: unknown) {
@@ -157,7 +160,7 @@ Deno.serve(async (req) => {
     }
 
     // Em sandbox, usar sandbox_init_point; em produção, init_point
-    const checkoutUrl = mpBody.sandbox_init_point ?? mpBody.init_point;
+    const checkoutUrl = mpBody.init_point ?? mpBody.sandbox_init_point;
     return json({ checkoutUrl, preapprovalId: mpBody.id });
   } catch (err) {
     console.error("create-mp-subscription unhandled", err);

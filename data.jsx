@@ -631,6 +631,7 @@ async function createSubscription(plan = "monthly", backUrl){
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (!session?.access_token) return { error: "Não autenticado" };
+    const deviceId = window.MP_DEVICE_SESSION_ID || null;
     const res = await fetch(`${window.SUPABASE_URL}/functions/v1/create-mp-subscription`, {
       method: "POST",
       headers: {
@@ -638,7 +639,7 @@ async function createSubscription(plan = "monthly", backUrl){
         "Authorization": `Bearer ${session.access_token}`,
         "apikey": window.SUPABASE_ANON_KEY,
       },
-      body: JSON.stringify({ plan, back_url: backUrl }),
+      body: JSON.stringify({ plan, back_url: backUrl, device_id: deviceId }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) return { error: body?.error || "Falha ao criar assinatura." };
