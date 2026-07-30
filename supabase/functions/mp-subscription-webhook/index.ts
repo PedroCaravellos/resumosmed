@@ -16,18 +16,18 @@ Deno.serve(async (req) => {
   const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const db = createClient(supabaseUrl, serviceKey);
 
-  // Usa token de teste — quando for pra produção, trocar para MERCADOPAGO_ACCESS_TOKEN
-  const accessToken = Deno.env.get("MERCADOPAGO_TEST_ACCESS_TOKEN")
-    ?? Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
+  const accessToken = Deno.env.get("MERCADOPAGO_SUBSCRIPTION_TOKEN")
+    ?? Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")
+    ?? Deno.env.get("MERCADOPAGO_TEST_ACCESS_TOKEN");
   if (!accessToken) return json({ error: "missing token" }, 500);
 
   try {
     const body = await req.json();
     console.log("mp-subscription-webhook payload", JSON.stringify(body));
 
-    // MP envia type=subscription_preapproval para eventos de assinatura
+    // MP envia subscription_preapproval (mudança de status) e subscription_authorized_payment (pagamento)
     const { type, data } = body;
-    if (type !== "subscription_preapproval") {
+    if (!["subscription_preapproval", "subscription_authorized_payment"].includes(type)) {
       return json({ received: true, ignored: true });
     }
 
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
 
     if (!mpRes.ok) {
       console.error("MP preapproval fetch error", mpRes.status);
-      return json({ error: "mp fetch failed" }, 502);
+      return json({ received: true, error: "mp fetch failed" }, 200);
     }
 
     const pa = await mpRes.json();
@@ -90,13 +90,13 @@ Deno.serve(async (req) => {
 
     if (updateErr) {
       console.error("subscription update error", updateErr.message);
-      return json({ error: "db update failed" }, 500);
+      return json({ received: true, error: "db update failed" }, 200);
     }
 
     console.log("subscription updated", { preapprovalId, dbStatus, currentPeriodEnd });
     return json({ received: true });
   } catch (err) {
     console.error("mp-subscription-webhook unhandled", err);
-    return json({ error: "internal error" }, 500);
+    return json({ received: true }, 200); // sempre 200 para o MP não abandonar retentativas
   }
 });
