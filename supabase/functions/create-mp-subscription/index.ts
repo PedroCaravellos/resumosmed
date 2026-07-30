@@ -74,7 +74,11 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existing?.status === "authorized") {
-      return json({ error: "Você já tem uma assinatura ativa." }, 409);
+      const periodEnd = existing.current_period_end ? new Date(existing.current_period_end) : null;
+      const isExpired = periodEnd ? periodEnd < new Date() : false;
+      if (!isExpired) {
+        return json({ error: "Você já tem uma assinatura ativa." }, 409);
+      }
     }
 
     // Busca email do perfil
