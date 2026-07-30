@@ -2084,8 +2084,8 @@ function Planos({ go, currentUser, initialPlan }){
   const fmtDate = (d) => d ? new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : "";
 
   const PLANS = {
-    monthly: { label: "Mensal", price: 1, billing: "Cobrado mensalmente (teste)", saving: null },
-    annual:  { label: "Anual",  price: 1, billing: "R$ 12 cobrado uma vez por ano (teste)", saving: null },
+    monthly: { label: "Mensal", price: 49, billing: "Cobrado mensalmente", saving: null },
+    annual:  { label: "Anual",  price: 39, billing: "Cobrado mensalmente (R$ 468/ano)", saving: "-20%" },
   };
   const selected = PLANS[plan];
 
