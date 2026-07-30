@@ -45,7 +45,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const accessToken = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")
+    const accessToken = Deno.env.get("MERCADOPAGO_SUBSCRIPTION_TOKEN")
+      ?? Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")
       ?? Deno.env.get("MERCADOPAGO_TEST_ACCESS_TOKEN");
     if (!accessToken) return json({ error: "Configuração interna inválida" }, 500);
 
