@@ -2208,10 +2208,19 @@ function Planos({ go, currentUser, initialPlan }){
                 </button>
               </div>
             ) : isPending ? (
-              <div>
-                <div style={{ background: "color-mix(in srgb, var(--acc-1) 15%, transparent)", border: "1px solid var(--acc-1)", borderRadius: "var(--radius-md)", padding: "12px 16px", marginBottom: 12, textAlign: "center", fontSize: 13, color: "var(--muted)" }}>
-                  Pagamento pendente. Aguarde alguns minutos para a confirmação.
+              <div className="col" style={{ gap: 10 }}>
+                <div style={{ background: "color-mix(in srgb, var(--acc-1) 15%, transparent)", border: "1px solid var(--acc-1)", borderRadius: "var(--radius-md)", padding: "12px 16px", textAlign: "center", fontSize: 13, color: "var(--muted)" }}>
+                  Pagamento pendente. Se perdeu o link, clique em continuar para gerar um novo.
                 </div>
+                {err && <div style={{ color: "#d00", fontSize: 13, padding: "10px 14px", background: "#fff0f0", borderRadius: "var(--radius-sm)", border: "1px solid #fcc" }}>{err}</div>}
+                <button
+                  className="btn primary lg"
+                  style={{ width: "100%", justifyContent: "center" }}
+                  disabled={loading}
+                  onClick={handleSubscribe}
+                >
+                  {loading ? "Aguarde…" : "Continuar pagamento"}
+                </button>
                 <button className="btn" style={{ width: "100%", justifyContent: "center" }} onClick={() => go({ name: "library" })}>
                   Ir para a biblioteca
                 </button>
