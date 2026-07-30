@@ -2191,7 +2191,7 @@ function Planos({ go, currentUser, initialPlan }){
             <div style={{ borderTop: "1px solid var(--line)", paddingTop: 16, marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
               <span style={{ fontWeight: 600 }}>Total</span>
               <span className="display" style={{ fontSize: 26, fontWeight: 700, color: "var(--primary)" }}>
-                R$ {plan === "annual" ? "12" : "1"}<span style={{ fontSize: 13, fontWeight: 400, color: "var(--muted)" }}>{plan === "annual" ? "/ano" : "/mês"}</span>
+                R$ {selected.price}<span style={{ fontSize: 13, fontWeight: 400, color: "var(--muted)" }}>/mês</span>
               </span>
             </div>
 
