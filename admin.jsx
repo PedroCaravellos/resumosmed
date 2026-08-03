@@ -32,7 +32,7 @@ function AdminDashboard({ go, currentUser, onLogout }){
 
         <AdminStats/>
 
-        <div className="row" style={{gap: 8, marginTop: 24, borderBottom:"1px solid var(--line)"}}>
+        <div className="row" style={{gap: 8, marginTop: 24, borderBottom:"1px solid var(--line)", overflowX:"auto", flexWrap:"nowrap", scrollbarWidth:"none", WebkitOverflowScrolling:"touch"}}>
           <TabBtn active={tab==="upload"} onClick={()=>setTab("upload")}>Upload de resumo</TabBtn>
           <TabBtn active={tab==="products"} onClick={()=>setTab("products")}>Resumos publicados</TabBtn>
           <TabBtn active={tab==="history"} onClick={()=>setTab("history")}>Histórico de compras</TabBtn>
@@ -62,7 +62,7 @@ function TabBtn({ active, onClick, children }){
         padding: "12px 18px", border: 0, background:"transparent", cursor:"pointer", fontFamily:"inherit",
         fontSize: 14, fontWeight: 600, color: active ? "var(--fg)" : "var(--muted)",
         borderBottom: active ? "2px solid var(--primary)" : "2px solid transparent",
-        marginBottom: -1, transition:"color .15s ease"
+        marginBottom: -1, transition:"color .15s ease", flexShrink: 0, whiteSpace:"nowrap"
       }}
     >
       {children}
@@ -102,7 +102,7 @@ function AdminStats(){
   ];
 
   return (
-    <div style={{display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap: 14}}>
+    <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(140px, 1fr))", gap: 14}}>
       {cards.map((c, i) => (
         <div key={i} className="card" style={{padding: "var(--card-pad)", position:"relative", overflow:"hidden"}}>
           <div style={{position:"absolute", top: -20, right: -20, width: 90, height: 90, borderRadius: 999, background: c.color, opacity:.3}}/>
@@ -436,7 +436,8 @@ function AdminProducts({ go }){
         {loading ? (
           <div style={{padding: 60, display:"flex", justifyContent:"center"}}><Spinner/></div>
         ) : (
-        <table style={{width:"100%", borderCollapse:"collapse", fontSize: 14}}>
+        <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%", minWidth: 580, borderCollapse:"collapse", fontSize: 14}}>
           <thead>
             <tr style={{textAlign:"left", color:"var(--muted)", fontSize: 11, textTransform:"uppercase", letterSpacing:".08em"}}>
               <th style={th()}>Resumo</th>
@@ -495,6 +496,7 @@ function AdminProducts({ go }){
             })}
           </tbody>
         </table>
+        </div>
         )}
       </div>
       {editing && <EditProductModal product={editing} onClose={()=>setEditing(null)} onSaved={onSaved}/>}
@@ -601,7 +603,7 @@ function AdminHistory(){
             <input
               value={query} onChange={e=>setQuery(e.target.value)}
               placeholder="Buscar cliente, email ou resumo..."
-              style={{padding:"10px 14px 10px 36px", borderRadius: 999, border:"1px solid var(--line)", background:"var(--surface)", color:"var(--fg)", fontFamily:"inherit", fontSize: 13.5, width: 280, outline:"none"}}
+              style={{padding:"10px 14px 10px 36px", borderRadius: 999, border:"1px solid var(--line)", background:"var(--surface)", color:"var(--fg)", fontFamily:"inherit", fontSize: 13.5, width: "100%", maxWidth: 280, minWidth: 140, outline:"none"}}
             />
           </div>
           <select value={areaFilter} onChange={e=>setAreaFilter(e.target.value)} style={{padding:"10px 14px", borderRadius: 999, border:"1px solid var(--line)", background:"var(--surface)", color:"var(--fg)", fontFamily:"inherit", fontSize: 13.5, cursor:"pointer"}}>
@@ -617,7 +619,8 @@ function AdminHistory(){
         ) : rows.length === 0 ? (
           <div style={{padding: 60, textAlign:"center", color:"var(--muted)"}}>Nenhuma venda encontrada.</div>
         ) : (
-        <table style={{width:"100%", borderCollapse:"collapse", fontSize: 14}}>
+        <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%", minWidth: 680, borderCollapse:"collapse", fontSize: 14}}>
           <thead>
             <tr style={{textAlign:"left", color:"var(--muted)", fontSize: 11, textTransform:"uppercase", letterSpacing:".08em", background:"var(--bg)"}}>
               <th style={th()}>Cliente</th>
@@ -656,6 +659,7 @@ function AdminHistory(){
             ))}
           </tbody>
         </table>
+        </div>
         )}
       </div>
     </div>
@@ -1184,7 +1188,8 @@ function AdminUsers(){
         ) : rows.length === 0 ? (
           <div style={{padding: 60, textAlign:"center", color:"var(--muted)"}}>Nenhum usuário encontrado.</div>
         ) : (
-        <table style={{width:"100%", borderCollapse:"collapse", fontSize: 14}}>
+        <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%", minWidth: 700, borderCollapse:"collapse", fontSize: 14}}>
           <thead>
             <tr style={{textAlign:"left", color:"var(--muted)", fontSize: 11, textTransform:"uppercase", letterSpacing:".08em", background:"var(--bg)"}}>
               <th style={th()}>Usuário</th>
@@ -1250,6 +1255,7 @@ function AdminUsers(){
             })}
           </tbody>
         </table>
+        </div>
         )}
       </div>
 
@@ -1972,7 +1978,8 @@ function AdminDiscounts(){
             {codes.length === 0 ? (
               <div style={{padding: 60, textAlign:"center", color:"var(--muted)"}}>Nenhum cupom cadastrado.</div>
             ) : (
-              <table style={{width:"100%", borderCollapse:"collapse", fontSize: 14}}>
+              <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%", minWidth: 620, borderCollapse:"collapse", fontSize: 14}}>
                 <thead>
                   <tr style={{textAlign:"left", color:"var(--muted)", fontSize: 11, textTransform:"uppercase", letterSpacing:".08em", background:"var(--bg)"}}>
                     <th style={th()}>Código</th>
@@ -2023,6 +2030,7 @@ function AdminDiscounts(){
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>
@@ -2056,7 +2064,8 @@ function AdminDiscounts(){
           {products.length === 0 ? (
             <div style={{padding: 60, textAlign:"center", color:"var(--muted)"}}>Nenhum produto encontrado.</div>
           ) : (
-            <table style={{width:"100%", borderCollapse:"collapse", fontSize: 14}}>
+            <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%", minWidth: 540, borderCollapse:"collapse", fontSize: 14}}>
               <thead>
                 <tr style={{textAlign:"left", color:"var(--muted)", fontSize: 11, textTransform:"uppercase", letterSpacing:".08em", background:"var(--bg)"}}>
                   <th style={th()}>Produto</th>
@@ -2115,6 +2124,7 @@ function AdminDiscounts(){
                 })}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       )}
