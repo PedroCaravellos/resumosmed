@@ -1354,6 +1354,12 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
               </div>
             )}
 
+            {appliedDiscount && codeDiscountAmt > 0 && (
+              <div style={{padding:"10px 14px", background:"color-mix(in oklab, var(--acc-2) 15%, var(--bg))", borderRadius:10, border:"1px solid color-mix(in oklab, var(--acc-2) 40%, transparent)", fontSize:12.5, color:"var(--fg)", marginBottom:12, lineHeight:1.5}}>
+                Cupom <strong>{appliedDiscount.code}</strong> aplicado. O desconto de <strong>R$ {codeDiscountAmt}</strong> já está incluído no valor exibido no Mercado Pago.
+              </div>
+            )}
+
             {isFreeCart ? (
               <>
                 <button className="btn primary lg" style={{width:"100%", justifyContent:"center"}} onClick={claimAllFree} disabled={claimingFree}>
