@@ -1141,13 +1141,17 @@ function Cart({ go, cart, removeFromCart, currentUser, clearCart, refreshUser })
   const codeDiscountAmt = (() => {
     if (!appliedDiscount) return 0;
     const { type, value, applies_to } = appliedDiscount;
+    // Per-item rounding matches the Edge Function behavior exactly,
+    // so the total shown here equals what MP will display.
+    const discountItem = (p) => type === "percent"
+      ? (p - Math.max(0, Math.round(p * (1 - value / 100))))
+      : Math.min(p, value);
     if (applies_to !== "all") {
       const item = cart.find(r => r.id === applies_to);
       if (!item) return 0;
-      const p = item.effective_price ?? item.price;
-      return type === "percent" ? Math.round(p * value / 100) : Math.min(p, value);
+      return discountItem(item.effective_price ?? item.price);
     }
-    return type === "percent" ? Math.round(baseTotal * value / 100) : Math.min(baseTotal, value);
+    return cart.reduce((s, r) => s + discountItem(r.effective_price ?? r.price), 0);
   })();
 
   const total = Math.max(0, baseTotal - codeDiscountAmt);
